@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 from contextlib import ExitStack
 from functools import partial, reduce
 import itertools
+from typing import Final
 
 import bpy
 from expression import NOTHING, Ok, Option, option, Some
@@ -67,6 +68,10 @@ from rasm.rendering import Output
 type StageTarget = tuple[
     tuple[bpy.types.CompositorNodeGroup, ...], CompositorEffect, Entry, Callable[[Stage], Outcome[Option[Prepared]]], Mapping[tuple[bpy.types.CompositorNodeGroup, ...], tuple[Key, ...]]
 ]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_AFFINE: Final[Key] = "affine"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -409,7 +414,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
 
             def transformed(content: Expr) -> Expr:
                 space = FrameSpace.of(content, aspect, scale)
-                return space.placed(content, space.placement(*(outer("affine", socket.key) for socket in AFFINE.inputs)))
+                return space.placed(content, space.placement(*(outer(_AFFINE, socket.key) for socket in AFFINE.inputs)))
 
             def layer_panel(entries: tuple[tuple[Key, CompositorEffect, NodeGroup], ...]) -> InterfacePanel:
                 def panel(part: Key, interface: Interface, toggle: Option[bool] = NOTHING) -> InterfacePanel:
@@ -422,7 +427,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
                 sourcing = (panel(item_key(StackLayer.source), layer.source.interface),) if isinstance(layer.source, Recombined) else ()
                 effects = msgspec.structs.replace(panel(item_key(EFFECTS), Interface(), Some(True)), panels=tuple(itertools.starmap(entry_panel, entries)))
                 matting = (panel(item_key(StackLayer.matte), TRACK_MATTE),) if layer.matte else ()
-                return InterfacePanel(key=layer_key, name=layer.name, panels=(*sourcing, effects, panel("affine", AFFINE), panel(item_key(StackLayer.blend), layer.blend.interface), *matting))
+                return InterfacePanel(key=layer_key, name=layer.name, panels=(*sourcing, effects, panel(_AFFINE, AFFINE), panel(item_key(StackLayer.blend), layer.blend.interface), *matting))
 
             def built(source: Expr, entries: tuple[tuple[Key, CompositorEffect, NodeGroup], ...]) -> Outcome[_Unit]:
                 return chained(source, entries).map(transformed).bind(lambda content: covered(source, content, layer_panel(entries)))

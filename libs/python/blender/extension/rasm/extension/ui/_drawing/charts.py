@@ -26,6 +26,8 @@ type _Mark = Literal["LINES", "LINE_STRIP", "POINTS", "TRIS"]
 GRID: Final[Color] = (1.0, 1.0, 1.0, 0.2)
 _MAJOR: Final[Color] = (1.0, 1.0, 1.0, 0.5)
 TRACE: Final[Color] = (1.0, 1.0, 1.0, 0.75)
+_TEXT: Final[Color] = (1.0, 1.0, 1.0, 0.2)
+_RADIUS: Final = 3.0
 _UNITS: Final = 10
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -102,22 +104,15 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         y = extent.y + inset
         pitch = size + metrics.spaced(Spacing.BUTTON_Y)
         with Canvas.mapped(Rect(x=x, y=y, width=1.0, height=1.0)):
-            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), (0.0, 0.0, 0.0, 1.0), CLEAR, 3.0)
+            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), (0.0, 0.0, 0.0, 1.0), CLEAR, _RADIUS)
             with canvas.clipped(Rect(x=x + 1.0, y=y + 1.0, width=self.width, height=self.height)), Canvas.mapped(Rect(x=1.0, y=1.0, width=self.width, height=self.height)):
                 for layer in self.layers:
                     layer.drawn(canvas)
             for label in self.labels:
-                canvas.label(
-                    label.text,
-                    (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2),
-                    (1.0, 1.0, 1.0, 0.2),
-                    FontStyle(size=size, align=label.align),
-                )
+                canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, FontStyle(size=size, align=label.align))
             for index, line in enumerate(self.caption, 1):
-                canvas.label(
-                    line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), (1.0, 1.0, 1.0, 0.2), FontStyle(size=size, align=self.corner)
-                )
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, (0.0, 0.0, 0.0, 0.5), 3.0)
+                canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, FontStyle(size=size, align=self.corner))
+            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, (0.0, 0.0, 0.0, 0.5), _RADIUS)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
