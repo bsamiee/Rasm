@@ -56,21 +56,26 @@ const createNodes: CreateNodes = [
             members.filter(({ listed: uv }) => !uv),
             ({ root }) => Effect.zipWith(fs.exists(join(context.workspaceRoot, root, 'project.json')), Effect.isSuccess(Effect.flatMap(fs.readFileString(join(context.workspaceRoot, root, 'package.json')), Schema.decodeEffect(Named))), (project, manifest) => project || manifest),
         );
-        const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => [
-            member.lock,
-            {
-                projects: {
-                    [member.root]: {
-                        root: member.root,
-                        ...(!supplied.includes(member) && { name: member.name }),
-                        metadata: { technologies: ['python'] },
-                        ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
-                        implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),
-                        targets: targets({ ...member, checks: member.checks.filter((check) => Array.isReadonlyArrayNonEmpty(Array.intersection(check.patterns, held))) }, settings, manifest, anchor),
+        const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => {
+            const checks = member.checks.filter((check) => Array.isReadonlyArrayNonEmpty(Array.intersection(check.patterns, held)));
+            return [
+                member.lock,
+                {
+                    projects: {
+                        [member.root]: {
+                            root: member.root,
+                            ...(!supplied.includes(member) && { name: member.name }),
+                            metadata: { technologies: ['python'] },
+                            ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
+                            implicitDependencies: Array.dedupe([...member.linked, ...checks.flatMap(Struct.get('paths'))])
+                                .filter((root) => root !== member.root && roots.has(root))
+                                .map((root) => `directory:${root}`),
+                            targets: targets({ ...member, checks }, settings, manifest, anchor),
+                        },
                     },
                 },
-            },
-        ]);
+            ];
+        });
         yield* Effect.forEach(models.flatMap(Struct.get('refused')), (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)));
         return yield* Array.match(refused, { onEmpty: () => Effect.succeed(results), onNonEmpty: (errors) => Effect.fail(new AggregateCreateNodesError(errors, results)) });
     }),
