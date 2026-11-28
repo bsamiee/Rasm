@@ -12,15 +12,15 @@ argument-hint: "[task]"
 
 Every job runs at `xhigh` effort on the standard service tier, and its row picks the model:
 
-| [INDEX] | [JOB]  | [WHAT_IT_DOES]                                                                | [MODEL]         |
-| :-----: | :----- | :---------------------------------------------------------------------------- | :-------------- |
-|  [01]   | Review | Codex's own review of uncommitted changes, a branch, or a commit              | `gpt-6.2-sol`   |
-|  [02]   | Read   | Precise second reading of a finished feature, few findings and few wrong      | `gpt-6.2-sol`   |
-|  [03]   | Task   | Bounded terminal or code task its brief states, proven by a command           | `gpt-6.2-sol`   |
-|  [04]   | Hunt   | Exhaustive defect search where a miss costs more than triage of false alarms  | `gpt-6.2-astra` |
-|  [05]   | Trace  | One defect crossing services or processes this session failed to explain      | `gpt-6.2-astra` |
-|  [06]   | Scene  | 3D or interactive scene: WebGL, a game prototype, Blender scripting           | `gpt-6.2-astra` |
-|  [07]   | Proof  | Formal mathematics, a proof assistant, an algorithm with a stated bound       | `gpt-6.2-astra` |
+| [INDEX] | [JOB]  | [WHAT_IT_DOES]                                                               | [MODEL]         |
+| :-----: | :----- | :--------------------------------------------------------------------------- | :-------------- |
+|  [01]   | Review | Codex's own review of uncommitted changes, a branch, or a commit             | `gpt-6.2-sol`   |
+|  [02]   | Read   | Precise second reading of a finished feature, few findings and few wrong     | `gpt-6.2-sol`   |
+|  [03]   | Task   | Bounded terminal or code task its brief states, proven by a command          | `gpt-6.2-sol`   |
+|  [04]   | Hunt   | Exhaustive defect search where a miss costs more than triage of false alarms | `gpt-6.2-astra` |
+|  [05]   | Trace  | One defect crossing services or processes this session failed to explain     | `gpt-6.2-astra` |
+|  [06]   | Scene  | 3D or interactive scene: WebGL, a game prototype, Blender scripting          | `gpt-6.2-astra` |
+|  [07]   | Proof  | Formal mathematics, a proof assistant, an algorithm with a stated bound      | `gpt-6.2-astra` |
 
 Mode is this session's call per run: `read` changes no file, `write` edits files in place in this checkout. Task, Scene, and Proof write, every other job reads, and findings this session confirmed go to a fresh write run.
 
@@ -30,23 +30,31 @@ Host work (Blender, Rhino, Adobe applications) is briefed by application name al
 
 ## [02]-[RUN]
 
-```bash
-timeout 90m codex exec <mode> -m <model> -c model_reasoning_effort='"xhigh"' -c service_tier='"default"' -o <answer> "$(cat <brief>)" </dev/null
+Every `codex` command runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`. The tool answers at once with the runner agent's id, the run goes on as a background agent of the calling loop, and its report arrives as that agent's notice:
+
+```json
+{
+    "command": "codex exec <mode> -m <model> -c model_reasoning_effort='\"xhigh\"' -c service_tier='\"default\"' -o <answer> \"$(cat <brief>)\" </dev/null",
+    "description": "<job> <subject>",
+    "limit": "90 minutes"
+}
 ```
 
+- Command: one simple command, redirects and `$(...)` inside words included, with no pipeline, list, `&`, or leading assignment
+- Limit: `codex exec` has no time limit of its own, so `limit` ends a hung run, reported `ended at limit`
+- Quiet: a run whose `codex` process uses no CPU and writes none of its own files for 20 minutes ends, reported `ended quiet`
+- Stop: `TaskStop` with the runner's id ends the run and its `codex` process, and the person stops it from the agent list
 - Options: every option precedes `review` and `resume`, and a resumed run inherits none
-- Limit: `codex exec` has no time limit of its own, `timeout` ends a hung run with exit `124`
 - Input: piped stdin joins the prompt as a `<stdin>` block, `</dev/null` keeps it empty
 - Folder: `--cd <dir>` sets the working root, `--skip-git-repo-check` allows one outside a repository
 - Read: `--sandbox read-only` refuses every write
 - Write: no `--sandbox`, the run takes the sandbox `config.toml` sets and the brief alone bounds its task
 - Data: `--output-schema <file>` makes the final message JSON of that schema, each object closed with every field required
-- Events: `--json` prints JSONL, `thread.started` holds the `thread_id`
+- Events: `--json > <events.jsonl>` writes JSONL, `thread.started` holds the `thread_id`
 - Follow-up: `codex exec <options> resume <thread_id> "<prompt>"` continues that run, `--ephemeral` keeps no session to resume
-- Background: start it as a background command and keep working, a result arrives in minutes
 - Redirect: a run that went wrong is stopped and started again from a new brief, steering it costs more
 
-Review runs Codex's own rubric without subagents over one selector, or over a prompt alone that names what to review, never both:
+Review runs Codex's own rubric without subagents over one selector, or over a prompt alone that names what to review, never both, each command a run's `command`:
 
 ```bash
 codex exec --sandbox read-only -m gpt-6.2-sol -c model_reasoning_effort='"xhigh"' -o <answer> review --uncommitted
@@ -69,7 +77,9 @@ Rules a review enforces sit under `## Code Review Rules` in the `AGENTS.md` near
 
 ## [04]-[RESULT]
 
-- Good results have exit `0` and a non-empty `-o` file, findings included, and `turn.failed` in the events marks a failed turn
+Reports open `run: codex exec, exit <code>, <time>`, or `ended at limit`, `ended quiet`, or `stopped` in place of the exit, then name the model, each file the run wrote with its size, and the last stderr line of a failed run.
+
+- Good results have exit `0` and an `-o` file of some size, findings included, and `turn.failed` in the events marks a failed turn
 - Stderr holds connection errors of MCP servers whose application is closed, the `-o` file alone is the verdict
 - Blockers Astra met can be missing from its report: a task is judged by its diff and proving command rerun here
 - Findings are read against the code before they are used, Astra's hunt most of all

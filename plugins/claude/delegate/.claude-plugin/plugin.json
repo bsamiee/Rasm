@@ -1,0 +1,8 @@
+{
+    "name": "delegate",
+    "version": "0.1.0",
+    "description": "Claude Code runs of outside agents (codex exec, agy, any one-command CLI agent) as background engine agents reporting their verdict, with skills for Antigravity and Codex runs, path audits, and reviews across models",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}
