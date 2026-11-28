@@ -167,7 +167,7 @@ class Gathering extends Context.Service<
                     onSome: (own) => read('zellij panes', Pane.list(Option.none()).pipe(Effect.map(Option.getOrElse(() => Array.empty<Pane>())), Effect.map(Array.filter((pane) => !pane.is_plugin && !pane.exited && pane.id !== own && pane.attention.status === 'NeedsYou' && pane.attention.muted === null)))),
                 }),
                 runs: read(`zellij session ${WATCH}`, watch.views),
-                peers: Peer.list,
+                peers: read('claude agents', Peer.list),
                 threads: read(
                     THREADS.join(' '),
                     threads((cwd) => Option.isSome(path.resolveWithin(root, path.relative(root, cwd)))),
