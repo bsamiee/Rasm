@@ -64,20 +64,19 @@ Large removals come from deleting hand copies of what an owner performs, and sma
 
 Each edit takes its rebuild over its bad form:
 
-| [INDEX] | [FOUND]                                                            | [REBUILD]                                                     |
-| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | Lines trimmed around a hand-written decoder, parser, or codec      | Copy deleted with its tests, owner member called              |
-|  [02]   | Hand copy kept as faster or more convenient than its owner         | Owner called, a copy staying for a measured requirement       |
-|  [03]   | Hand copy differing from its owner on some input                   | Owner's behavior, difference a defect the copy brought        |
-|  [04]   | Custom grammar, schema, or format beside a tool's built-in one     | Built-in used, custom files, build steps, and rows deleted    |
-|  [05]   | `sd` or a script reshaping code a pass rebuilds                    | Write of a reshaped file, Edit per hunk                       |
-|  [06]   | `sd -F` over sites no read covered                                 | `sd -F` for one literal after each site was read              |
-|  [07]   | Refused compact form answered by restoring the repetition          | Rule named from its source, next form it accepts              |
-|  [08]   | Export, constant, row, helper, type, or table added with no reader | Reader in the same change, code it replaces removed           |
-|  [09]   | Helper, private member, constant, or export born of a defect fix   | Fix inside the member holding the defect                      |
-|  [10]   | New export where an existing member can take the case              | Better behavior of the existing member                        |
-|  [11]   | Shared member changed for every consumer, consumers named after    | Every consumer read and rebuilt in the diff, or change scoped |
-|  [12]   | Probe file or lowered severity in a tracked folder                 | Probe in scratch, severity left at its row                    |
+| [INDEX] | [FOUND]                                                              | [REBUILD]                                                     |
+| :-----: | :------------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | Lines trimmed around a hand-written decoder, parser, or codec        | Copy deleted with its tests, owner member called              |
+|  [02]   | Hand copy kept as faster or more convenient than its owner           | Owner called, a copy staying for a measured requirement       |
+|  [03]   | Hand copy differing from its owner on some input                     | Owner's behavior, difference a defect the copy brought        |
+|  [04]   | Custom grammar, schema, or format beside a tool's built-in one       | Built-in used, custom files, build steps, and rows deleted    |
+|  [05]   | `sd` or a script reshaping code a pass rebuilds                      | Write of a reshaped file, Edit per hunk                       |
+|  [06]   | `sd -F` over sites no read covered                                   | `sd -F` for one literal after each site was read              |
+|  [07]   | Refused compact form answered by restoring the repetition            | Rule named from its source, next form it accepts              |
+|  [08]   | Export, constant, row, helper, type, or table added with no reader   | Reader in the same change, code it replaces removed           |
+|  [09]   | Helper, member, constant, or export added for defect fix or new case | Fix or case inside existing member holding it                 |
+|  [10]   | Shared member changed for every consumer, consumers named after      | Every consumer read and rebuilt in the diff, or change scoped |
+|  [11]   | Probe file or lowered severity in a tracked folder                   | Probe in scratch, severity left at its row                    |
 
 Files are read again right before each edit, and no line of the tree is fenced from a fix.
 
@@ -186,38 +185,73 @@ Criteria deciding a row:
 - Suppression: each suppression names its reason, and one a catalog or manifest row makes false goes with its finding fixed
 - Capability: each input class a removal stops handling is named, one named input restores the removed code, and a dropped capability fails the pass
 
-Agent-written code repeats these forms in every language, each found by behavior and rebuilt from the owner a read named:
+Agent-written code repeats these forms in every language, each found by behavior and rebuilt from the owner a read named.
 
-| [INDEX] | [FOUND]                                                                | [REBUILD]                                                      |
-| :-----: | :--------------------------------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | Helper doing a platform member's job (memo map, pair zips, sum loop)   | Platform member (insert-or-compute, n-ary zip, built-in sum)   |
-|  [02]   | Encoded-to-domain conversion by hand (try, parse, then construct)      | Package codec stating both directions, construction by schema  |
-|  [03]   | JSON Schema, protocol list, or enumeration written beside its package  | Package member generating it, enumeration read from it         |
-|  [04]   | Spawn of a tool for values another owner resolved                      | Value read from its resolving owner, passed by caller          |
-|  [05]   | Parse of a tool's printed text where typed or structured output exists | Typed API, structured output flag, or built-in module          |
-|  [06]   | Text test on a path, version, or identifier (prefix and slash, split)  | Relation member of its type, one member every site shares      |
-|  [07]   | Helper copied into each sibling project, an exclusion hiding it        | One member in their shared library, each reader rebuilt        |
-|  [08]   | Service shape restating its implementation member by member            | Shape derived from its builder's value or success type         |
-|  [09]   | Record per error or fault kind holding like fields                     | One error type with a case per kind callers branch on          |
-|  [10]   | Decode of fields no reader reads, a schema per request and stored form | Read fields decoded alone, other forms derived from one object |
-|  [11]   | Annotation, description, or schema no host, model, or reader receives  | Deleted                                                        |
-|  [12]   | Rules or arms each parsing one input again                             | One reader parsing once over one table of its cases            |
-|  [13]   | Helper taking as parameters what its caller's scope holds              | Logic inside the scope holding its inputs                      |
-|  [14]   | Discard, cast, or declaration added at each site to quiet one rule     | Rule rebuilt or turned off in its row, each forced form gone   |
-|  [15]   | Form a deleted rule forced, kept after the rule went                   | Form the language states, at every site                        |
-|  [16]   | Fold hiding a use from a checker (names moved into a loop)             | Form the checker reads, every use visible                      |
-|  [17]   | Message joined around fragments, one empty in some case                | Choice between complete messages derived from typed fields     |
-|  [18]   | Sentence spelled per case, call site, or table row                     | Text derived once from a value's case and fields               |
-|  [19]   | Library failure naming no subject or reason                            | Failure naming what failed and why, remedy added by its tool   |
-|  [20]   | Global declared for a value a build tool or host supplies              | Typed channel of that tool (an import, a generated module)     |
-|  [21]   | Constant family sharing a prefix (`MAX_`, `MIN_`, `DEFAULT_`)          | One value holding the relation (`{ min, max }`)                |
-|  [22]   | Number with its unit in its name (`timeoutMs`, `sizeBytes`)            | Value of the language's duration or size type                  |
-|  [23]   | String joined into a path, URL, key, or command line                   | Package builder (path join, URL, argument vector)              |
-|  [24]   | Literal per item in a table (header per application)                   | Value derived where the items are enumerated                   |
-|  [25]   | Optional fields set together, a boolean beside each                    | One optional record, or a case per valid state                 |
-|  [26]   | Guard repeated by every reader of a wide shape                         | Shape narrowed once at construction                            |
-|  [27]   | Cache in front of a second walk over one input                         | One walk, keyed lookups                                        |
-|  [28]   | Second type for one concept (part and module, request and stored)      | One type, the narrower form derived from it                    |
+### [05.1]-[HAND_CODE]
+
+Hand code performs a job a platform member, package, or tool performs:
+
+| [INDEX] | [FOUND]                                                               | [REBUILD]                                                     |
+| :-----: | :-------------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | Helper doing platform member's job (memo map, pair zip, sum, merge)   | Platform member (insert-or-compute, n-ary zip, sum, combiner) |
+|  [02]   | Character loop doing text member's job (case map, quote-aware scan)   | Standard text member or one pattern                           |
+|  [03]   | Encoded-to-domain conversion by hand (try, parse, then construct)     | Package codec stating both directions, construction by schema |
+|  [04]   | JSON Schema, protocol list, or enumeration written beside its package | Package member generating it, enumeration read from it        |
+|  [05]   | Spawn of tool for values another owner resolved                       | Value read from its resolving owner, passed by caller         |
+|  [06]   | Parse of tool's printed text where typed or structured output exists  | Typed API, structured output flag, or built-in module         |
+|  [07]   | Text test on path, version, file name, or identifier (prefix, split)  | Relation member or glob of its type, shared by every site     |
+|  [08]   | String joined into path, URL, key, or command line                    | Package builder (path join, URL, argument vector)             |
+|  [09]   | Build-time file read and decoded at run time (manifest, bundled data) | Build-time import or embed the build tracks                   |
+|  [10]   | Helper copied into each sibling project, exclusion hiding it          | One member in their shared library, each reader rebuilt       |
+|  [11]   | State cells and lock kept consistent by hand                          | One record in one transactional or atomic cell                |
+
+### [05.2]-[RESTATED_SHAPES]
+
+Declarations restate a fact another value holds:
+
+| [INDEX] | [FOUND]                                                                   | [REBUILD]                                               |
+| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------ |
+|  [01]   | Second type for one value (service shape and builder, request and stored) | One owning value, other forms derived from it           |
+|  [02]   | Record copying fields out of value it could hold whole                    | Value held whole, readers deriving each field           |
+|  [03]   | Tables keyed by one key held apart (allowed set, refusal map, labels)     | One table keyed once, row holding every fact of its key |
+|  [04]   | Record per error or fault kind holding like fields                        | One error type with case per kind callers branch on     |
+|  [05]   | Field, case data, or decoded key no reader reads                          | Read fields decoded alone, unread data deleted          |
+|  [06]   | Annotation, description, or schema no host, model, or reader receives     | Deleted                                                 |
+|  [07]   | Constant family sharing prefix (`MAX_`, `MIN_`, `DEFAULT_`)               | One value holding relation (`{ min, max }`)             |
+|  [08]   | Literal per item in table (header per application)                        | Value derived where items are enumerated                |
+|  [09]   | Guard repeated by every reader of wide shape                              | Shape narrowed once at construction                     |
+
+### [05.3]-[INDIRECTION]
+
+Members route a step through a copy, a parameter, or a second pass:
+
+| [INDEX] | [FOUND]                                                                  | [REBUILD]                                                 |
+| :-----: | :----------------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | Helper taking as parameters what its caller's scope holds                | Logic inside scope holding its inputs                     |
+|  [02]   | Copy of general member fixed to one argument (combinator per condition)  | General member taking argument, each copy deleted         |
+|  [03]   | Input parsed or walked again (check then split, pass per rule or output) | One read yielding parts, row per item serving each output |
+|  [04]   | Value fixed at construction converted or built again on each call        | Converted once where it is constructed                    |
+
+### [05.4]-[CHECKER_FORCED]
+
+Checker rules force forms that outlive their cause:
+
+| [INDEX] | [FOUND]                                                                        | [REBUILD]                                             |
+| :-----: | :----------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Discard, cast, or declaration per site quieting one rule, kept after rule went | Rule rebuilt or off in its row, each forced form gone |
+|  [02]   | Fold hiding use from checker (names moved into loop)                           | Form checker reads, every use visible                 |
+
+### [05.5]-[VALUES]
+
+Values and messages lose the type or case they come from:
+
+| [INDEX] | [FOUND]                                                                  | [REBUILD]                                                    |
+| :-----: | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | Message joined around fragments, sentence spelled per case, site, or row | Complete message per case, derived once from typed fields    |
+|  [02]   | Library failure naming no subject or reason                              | Failure naming what failed and why, remedy added by its tool |
+|  [03]   | Failure caught as default (zero, empty, unknown kind), filtered later    | Expected failure alone caught as absence, others raised      |
+|  [04]   | Number with unit in name or formatted text (`timeoutMs`, `${n} bytes`)   | Duration or size type value, printed by its formatter        |
+|  [05]   | Global declared for value build tool or host supplies                    | Typed channel of that tool (import, generated module)        |
 
 ## [06]-[LOGIC]
 
@@ -245,39 +279,37 @@ Members past the limit or ragged rebuild deepest first, each step taking the ear
 
 Fixes that keep shape and add a name, or change what a member returns or raises, are no rebuild:
 
-| [INDEX] | [FORBIDDEN]                                                                      | [REBUILD]                                         |
-| :-----: | :------------------------------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | Lines joined, body packed onto its declaration, print width raised, packed chain | Level removed from logic, one named step per line |
-|  [02]   | Values bound on one line through a tuple literal                                 | One binding per value                             |
-|  [03]   | Statement made an expression, value lifted into a wrapper to skip a map          | Statement in a block, plain value read in the map |
-|  [04]   | Helper or local function holding an inner level                                  | Member performing the step, called in place       |
-|  [05]   | Closure bound to a name for an inline callback                                   | Callback inline in one flat chain                 |
-|  [06]   | Wrapper or export around a nested call                                           | Direct call                                       |
-|  [07]   | Type born of the pass naming an inner value                                      | Value inferred at its reader                      |
-|  [08]   | Body moved to another member, private member, or file                            | Sequence restated in place                        |
-|  [09]   | Caller locals routing around a callee's signature                                | Callee's signature rebuilt with every consumer    |
-|  [10]   | Traversal swapped for one stopping sooner, presented as flattening               | Same items run, same failures raised              |
+| [INDEX] | [FORBIDDEN]                                                                 | [REBUILD]                                               |
+| :-----: | :-------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | Lines joined, packed body or chain, tuple binding, print width raised       | Level removed from logic, one step and binding per line |
+|  [02]   | Statement made an expression, value lifted into a wrapper to skip a map     | Statement in a block, plain value read in the map       |
+|  [03]   | Helper, local function, private member, or file holding moved level or body | Sequence restated in place, owner member called         |
+|  [04]   | Closure bound to a name for an inline callback                              | Callback inline in one flat chain                       |
+|  [05]   | Wrapper or export around a nested call                                      | Direct call                                             |
+|  [06]   | Type born of the pass naming an inner value                                 | Value inferred at its reader                            |
+|  [07]   | Caller locals routing around a callee's signature                           | Callee's signature rebuilt with every consumer          |
+|  [08]   | Traversal swapped for one stopping sooner, presented as flattening          | Same items run, same failures raised                    |
 
 Each shape replaces one repeated or nested form:
 
-| [INDEX] | [SHAPE]                               | [REPLACES]                                                     |
-| :-----: | :------------------------------------ | :------------------------------------------------------------- |
-|  [01]   | Match over a tuple of subjects        | Nested conditions over more than one discriminant              |
-|  [02]   | Arm guard                             | Inner condition one arm alone reads                            |
-|  [03]   | Binding chain                         | Early returns, stacked unwrap guards, binds over a nested call |
-|  [04]   | Release by the handle's protocol      | Bracket of acquire, use, and release callbacks                 |
-|  [05]   | Shared step hoisted                   | Same statement repeated in every arm                           |
-|  [06]   | Match in owner, miss as parameter     | Same match arms at every caller of an absent result            |
-|  [07]   | Table or relation                     | Arms or rows differing by one value                            |
-|  [08]   | Keyed record typing its own keys      | Row per key beside a hand-written union of the same keys       |
-|  [09]   | Iterator pipeline                     | Index loops, side collections, collect then filter or walk     |
-|  [10]   | Pipeline over a product, keyed lookup | Loop inside a loop with a filter                               |
-|  [11]   | One failure channel                   | Failure handler around each step                               |
-|  [12]   | Accumulating collect                  | Loop with a mutable error list                                 |
-|  [13]   | Combinator choosing a value           | Decision inside a default-supplying closure                    |
-|  [14]   | Builder fold                          | Sequence of mutations on one object                            |
-|  [15]   | One parameterized member              | Members differing by a value, flag, or case                    |
-|  [16]   | Tagged union, fields per case         | Kind field beside optional fields per kind, type per variant   |
+| [INDEX] | [SHAPE]                                   | [REPLACES]                                                                           |
+| :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | Match over a tuple of subjects            | Nested conditions over more than one discriminant                                    |
+|  [02]   | Arm guard                                 | Inner condition one arm alone reads                                                  |
+|  [03]   | Binding chain                             | Early returns, stacked unwrap guards, binds over a nested call                       |
+|  [04]   | Release by the handle's protocol          | Bracket of acquire, use, and release callbacks                                       |
+|  [05]   | Shared step hoisted                       | Same statement repeated in every arm                                                 |
+|  [06]   | Match in owner, miss as parameter         | Same match arms at every caller of an absent result                                  |
+|  [07]   | Table or relation                         | Arms or rows differing by one value                                                  |
+|  [08]   | Key type derived from record or host type | Union of keys a record or host type lists, written by hand                           |
+|  [09]   | Iterator pipeline                         | Index loops, side collections, collect then filter or walk                           |
+|  [10]   | Pipeline over a product, keyed lookup     | Loop inside a loop with a filter                                                     |
+|  [11]   | One failure channel                       | Failure handler around each step                                                     |
+|  [12]   | Accumulating collect                      | Loop with a mutable error list                                                       |
+|  [13]   | Combinator choosing a value               | Decision inside a default-supplying closure                                          |
+|  [14]   | Builder fold                              | Sequence of mutations on one object                                                  |
+|  [15]   | One parameterized member                  | Members differing by a value, flag, or case                                          |
+|  [16]   | Tagged union, fields per case             | Kind field or flag beside optional fields, type per variant, flag read after a match |
 
 Algebraic forms hold where a relation is real and are never forced:
 - Relation: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
