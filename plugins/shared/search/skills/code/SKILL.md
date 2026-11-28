@@ -24,7 +24,7 @@ One member's signature and doc, a type's members, a module's exports, or a confi
 
 Installed version of a direct or transitive package and the package that depends on it, one line per ecosystem:
 - .NET: resolved version at each node of the graph from a restored project
-- TypeScript: version per dependent, transitive packages sit under `node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>`, scope `/` spelled `+`
+- TypeScript: version per dependent, read through the dependent's `node_modules/<pkg>` link, as the store holds older versions and patch hashes
 - Python: version with every direct dependent from `uv.lock`, an extra or group in parentheses
 - Rust: version with every direct dependent from `Cargo.lock`
 - Swift: resolved tree of root `Package.swift`
