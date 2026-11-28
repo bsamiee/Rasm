@@ -34,24 +34,8 @@
             }
         },
         "credential": {
-            "anyOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": [
-                        {
-                            "type": "string"
-                        }
-                    ],
-                    "additionalItems": {
-                        "type": "string"
-                    }
-                }
-            ],
-            "description": "Environment variable holding the destination's credential, or variables in order of preference any one of which grants it (an OIDC token request beside a registry token), where every one is unset or empty the run publishes nothing, names them, and succeeds"
+            "type": "string",
+            "description": "Environment variable holding the destination's credential, an OIDC token request for a registry's trusted publishing included, where it is unset or empty the run publishes nothing, names it, and succeeds"
         },
         "flag": {
             "type": "string",

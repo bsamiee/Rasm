@@ -9,9 +9,7 @@ const Publish = Dry.mapFields(
     Struct.assign({
         publish: Schema.NonEmptyArray(Schema.String).annotate({ description: "The tool's publish argument list, followed by each file of the target's dependentTasksOutputFiles input, none where the target states no such input" }),
         preview: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey).annotate({ description: "Arguments the tool's own dry run adds to publish, run under a dry run in place of publish; absent prints publish and runs nothing" }),
-        credential: Schema.Union([Schema.String, Schema.NonEmptyArray(Schema.String)]).annotate({
-            description: "Environment variable holding the destination's credential, or variables in order of preference any one of which grants it (an OIDC token request beside a registry token), where every one is unset or empty the run publishes nothing, names them, and succeeds",
-        }),
+        credential: Schema.String.annotate({ description: "Environment variable holding the destination's credential, an OIDC token request for a registry's trusted publishing included, where it is unset or empty the run publishes nothing, names it, and succeeds" }),
         flag: Schema.optionalKey(Schema.String).annotate({ description: 'Argument the tool takes the credential under, for a tool reading no variable itself' }),
         __unparsed__: Words,
     }),
@@ -28,7 +26,7 @@ const execute = executor(Publish, function* ({ publish, preview, credential, fla
     const command = pipe(publish, Array.appendAll(files), Array.appendAll(forwarded(words)));
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);
     const delivered = Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), Array.prependAll(command)) : Option.as(held, Array.appendAll(command, keyed)), {
-        onNone: () => Effect.annotateLogs(Effect.logWithLevel(dry ? 'Info' : 'Warn')('skipped'), { command: CommandLine.display(command), dry, unset: dry ? [] : Array.ensure(credential) }),
+        onNone: () => Effect.annotateLogs(Effect.logWithLevel(dry ? 'Info' : 'Warn')('skipped'), { command: CommandLine.display(command), dry, unset: dry ? [] : [credential] }),
         onSome: (argv) => spawned(argv, { cwd: context.root, stdout: 'inherit', stderr: 'inherit' }),
     });
     yield* dry ? delivered : Effect.when(delivered, Effect.map(released(context), Option.isSome));

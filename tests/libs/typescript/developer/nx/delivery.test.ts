@@ -131,8 +131,9 @@ describe('publish through a registry tool', () => {
 
     it.for([
         { case: 'HEAD holds no project tag', tags: [], options: { credential: 'LIB_SECRET' }, target: 'nx-release-publish', published: [] },
-        { case: 'every credential variable is unset or empty', tags: ['lib@1.0.0'], options: { credential: ['UNSET_TOKEN', 'BLANK_TOKEN'] }, target: 'nx-release-publish', published: [] },
-        { case: 'a credential variable is set', tags: ['lib@1.0.0'], options: { credential: ['BLANK_TOKEN', 'LIB_SECRET'], flag: '--api-key' }, target: 'nx-release-publish', published: ['push', '.artifacts/lib/lib-1.0.0.tgz', '--api-key', 'token; touch PWNED'] },
+        { case: 'the credential variable is unset', tags: ['lib@1.0.0'], options: { credential: 'UNSET_TOKEN' }, target: 'nx-release-publish', published: [] },
+        { case: 'the credential variable is empty', tags: ['lib@1.0.0'], options: { credential: 'BLANK_TOKEN' }, target: 'nx-release-publish', published: [] },
+        { case: 'the credential variable is set', tags: ['lib@1.0.0'], options: { credential: 'LIB_SECRET', flag: '--api-key' }, target: 'nx-release-publish', published: ['push', '.artifacts/lib/lib-1.0.0.tgz', '--api-key', 'token; touch PWNED'] },
         { case: 'a dry run', tags: [], options: { credential: 'LIB_SECRET', flag: '--api-key', preview: ['--dry-run'], dryRun: true }, target: 'nx-release-publish', published: ['push', '.artifacts/lib/lib-1.0.0.tgz', '--dry-run'] },
         { case: 'a target stating no dependentTasksOutputFiles input', tags: ['lib@1.0.0'], options: { credential: 'LIB_SECRET' }, target: 'alone', published: ['push'] },
     ])('runs the tool with $published where $case', async ({ tags, options, target, published }, { workspace, released }) => {
@@ -147,11 +148,11 @@ describe('publish through a registry tool', () => {
         expect(existsSync(join(workspace.root, 'PWNED'))).toBe(false);
     });
 
-    it('names each unset credential variable where it publishes nothing', async ({ workspace, released, log }) => {
+    it('names the unset credential variable where it publishes nothing', async ({ workspace, released, log }) => {
         const { graph } = await released(registry, ['lib@1.0.0']);
 
-        await publish({ publish: [...tool], credential: ['UNSET_TOKEN', 'BLANK_TOKEN'] }, workspace.context(graph, 'lib', 'nx-release-publish'));
+        await publish({ publish: [...tool], credential: 'UNSET_TOKEN' }, workspace.context(graph, 'lib', 'nx-release-publish'));
 
-        expect(log).toHaveBeenCalledWith(expect.stringMatching(/, unset: UNSET_TOKEN BLANK_TOKEN$/u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/, unset: UNSET_TOKEN$/u));
     });
 });

@@ -31,7 +31,7 @@ const forwarded = (words: readonly string[]) => {
     return words.filter((word) => !owned.test(word));
 };
 
-const credentialed = (variables: string | readonly string[]) => Effect.map(Config.all(Array.ensure(variables).map((variable) => Config.option(Config.String(variable)))), Array.findFirst(Option.filter(String.isNonEmpty)));
+const credentialed = (variable: string) => Effect.map(Config.option(Config.String(variable)), Option.filter(String.isNonEmpty));
 
 const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, configurationName, projectGraph }: ExecutorContext) {
     const [project, target] = yield* Effect.all([Effect.fromNullishOr(projectName), Effect.fromNullishOr(targetName)]);

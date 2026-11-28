@@ -84,9 +84,8 @@ Release versions:
 
 Registry upload routes and their credentials:
 - `nx release publish` runs `pnpm publish` on the tarball each project's `pack--pnpm` wrote and `attach--gh` uploads
-- `pnpm publish` trades the job's OIDC token for a publish token of each package with a trusted publisher
-- Packages with no trusted publisher publish with `NODE_AUTH_TOKEN`, and `PNPM_CONFIG__AUTH` hands it to pnpm for the npm registry
-- Trusted publishers attach to a package npm holds, and each package's first version publishes with `NODE_AUTH_TOKEN`
+- `pnpm publish` trades the job's OIDC token for a publish token of each package with a trusted publisher, and a package with none fails its publish
+- Trusted publishers attach to a package npm holds, and each package's first version publishes by hand with the `NODE_AUTH_TOKEN` row
 - `npm trust github <package> --file release.yml --repository <owner>/<repository> --environment release --allow-publish` adds a trusted publisher
 - New trusted publishers expire unless a publish through them succeeds within 2 days
 - Trusted publishing accepts GitHub-hosted runners alone

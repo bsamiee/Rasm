@@ -94,7 +94,7 @@
             "options": {
                 "publish": ["pnpm", "publish", "--no-git-checks"],
                 "preview": ["--dry-run"],
-                "credential": ["ACTIONS_ID_TOKEN_REQUEST_URL", "NODE_AUTH_TOKEN"]
+                "credential": "ACTIONS_ID_TOKEN_REQUEST_URL"
             }
         },
         "@rasm/nx-typescript:upgrade": {

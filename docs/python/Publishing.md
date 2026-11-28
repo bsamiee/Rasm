@@ -45,6 +45,6 @@ Version sources:
 ## [05]-[PUBLISH]
 
 Upload routes and credentials:
-- `uv publish` uploads by PyPI trusted publishing under `id-token: write`, else by `UV_PUBLISH_TOKEN`, to PyPI, or to the `publish-url` of the first `[[tool.uv.index]]` row holding one
-- First PyPI releases register a pending trusted publisher under the project name, then `UV_PUBLISH_TOKEN` leaves Doppler and 1Password together
+- `uv publish` uploads by trusted publishing under `id-token: write` alone, to PyPI, or to the `publish-url` of the first `[[tool.uv.index]]` row holding one
+- First PyPI releases register a pending trusted publisher under the project name
 - `--dry-run` does everything but the upload

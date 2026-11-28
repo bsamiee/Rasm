@@ -269,10 +269,10 @@ const targets = (member: Member, { outputPath, environmentPath }: Options, manif
         ...(member.published && {
             'nx-release-publish': {
                 executor: EXECUTORS.publish,
-                options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: ['ACTIONS_ID_TOKEN_REQUEST_URL', 'UV_PUBLISH_TOKEN'] },
+                options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: 'ACTIONS_ID_TOKEN_REQUEST_URL' },
                 dependsOn: ['build--uv', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, through PyPI trusted publishing where GitHub Actions grants an OIDC token, else UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
+                metadata: { description: 'Publishes the distributions build--uv wrote with uv publish through trusted publishing, where GitHub Actions grants an OIDC token', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),
     });
