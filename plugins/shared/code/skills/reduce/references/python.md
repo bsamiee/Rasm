@@ -21,7 +21,7 @@ Python targets hold `.py` and `.pyi` files under each uv root `git ls-files ':!:
 ## [02]-[SOURCES]
 
 Python targets read core packages `expression`, `msgspec`, `anyio`, and `numpy` every session, the standard library of their root's interpreter, and Blender's RNA, as most hand-rolled code in this tree restates one of them. Package reads, one command per step:
-1. Version: release each uv root locks of each core package and candidate, as roots resolve one package apart (`anyio`, `numpy`)
+1. Version: release each uv root locks of each core package and each package step 11 adds, as roots resolve one package apart (`anyio`, `numpy`)
 2. Guide: documentation URL of each distribution, read through `search:web`, as wheels hold no agent guide
 3. `expression`: `pydoc` of every public module read whole, as its results, options, collections, and effects replace hand control flow
 4. `msgspec`: `pydoc` of every public module and each `.pyi` stub, as compiled `_core` states its signatures in stubs alone
@@ -31,7 +31,7 @@ Python targets read core packages `expression`, `msgspec`, `anyio`, and `numpy` 
 8. Standard library: `builtins`, `functools`, `itertools`, `operator`, `collections`, `enum`, `typing`, then a job's module, through steps 3 and 7
 9. Host: each RNA property and function of `bpy.types` in the installed Blender with enum identifiers, as a Blender root's `bpy` wheel can trail it
 10. Workspace: first-party files the target imports, each read whole
-11. Central manifest: dependency groups of each uv root whole, every session, then each candidate's import names and inventory through step 3
+11. Central manifest: dependency groups of each uv root whole, each package fitting a target's job added to its project, its API read through step 3
 
 ```bash
 for d in expression msgspec anyio numpy <dist>; do (cd <uv-root> && uv tree --frozen --invert --package "$d" --depth 1 | head -1); done
@@ -45,13 +45,11 @@ for d in expression msgspec anyio numpy <dist>; do (cd <uv-root> && uv tree --fr
 blender --background --factory-startup --python-exit-code 1 --python-expr "import bpy; print(*(f'{n}\t{kind}\t{m.identifier}\t{\" \".join(i.identifier for i in getattr(m, \"enum_items\", ()))}\t{m.description}' for n in dir(bpy.types) for rna in [getattr(getattr(bpy.types, n), 'bl_rna', None)] if rna for kind, members in (('property', rna.properties), ('function', rna.functions)) for m in members), sep='\n')" | rg '\t(property|function)\t' > <dir>/inventory-bpy.tsv
 ruff analyze graph <target> | jq -r '[.[]] | add | unique[]'
 git ls-files ':!:.config/**' '*uv.lock' && yq -p toml -oy '."dependency-groups"' <uv-root>/pyproject.toml && yq -p toml -oy '.project.dependencies' <project>/pyproject.toml
-<python> -c "import sys, re; from importlib.metadata import packages_distributions as p; n = lambda s: re.sub(r'[-_.]+', '-', s).lower(); print(*sorted(m for m, d in p().items() if n(sys.argv[1]) in map(n, d)))" <dist>
 ```
 
 Reads hold by root:
 - Interpreter: `<python>` reads the release its root installs, as `uv pip list` reads `VIRTUAL_ENV`, which mise points at the root `.venv`
-- Catalog: root `default-groups = "all"` installs every root catalog row, so step 3's command reads any root candidate with no install
-- Blender catalog: Blender root candidates rank group `blender` (what Blender bundles), member `dependencies`, then a root row with a 3.13 wheel
+- Installs: root `default-groups = "all"` installs every root catalog row, so step 3's command reads any root package with no install
 - Imports: inventories import each module, and a module whose optional dependency is missing prints its error in the inventory and stays unread
 - Members: `<python> -m inspect` reads a class member (`expression.core.option:Some.map`), as a `type` alias holds no members
 - Blender: modules importing `bpy` load inside Blender alone, read through step 9 and the Blender root's `bpy-stubs`, `rna_enums` literals included
