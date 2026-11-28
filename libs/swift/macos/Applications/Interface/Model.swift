@@ -242,7 +242,7 @@ struct Control: Encodable, Equatable, Sendable {
     let column: String?
     let scroll: Scroll?
     let selectedTextRanges: [TextRange]?
-    let numberOfCharacters: Int?
+    var numberOfCharacters: Int?
     let insertionPointLineNumber: Int?
     let runs: [Run]?
     let invalid: Invalid?
@@ -777,8 +777,14 @@ extension Model {
                 listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))?.redacting(withheld)].compactMap(\.self)) }
             ).map { step in intern(locator.appending(step)) }
             let area: Element? = parents[element.id].flatMap { parent in held[parent] }.flatMap { parent in parent.role == kAXScrollAreaRole ? parent : nil }
-            let bars: [Double?] = [kAXHorizontalScrollBarAttribute, kAXVerticalScrollBarAttribute].map { attribute in
-                area?.facts[attribute]?.element.flatMap { bar in held[bar]?.facts[kAXValueAttribute]?.number }
+            let room: (content: CGSize, shown: CGSize)? = area.flatMap { (area: Element) -> (content: CGSize, shown: CGSize)? in
+                guard let content = area.facts[NSAccessibility.Attribute.contentSize.rawValue]?.size, let shown = area.frame?.size else { return nil }
+                return (content, shown)
+            }
+            let bars: [Double?] = [(kAXHorizontalScrollBarAttribute, \CGSize.width), (kAXVerticalScrollBarAttribute, \CGSize.height)].map {
+                (attribute: String, axis: KeyPath<CGSize, CGFloat>) -> Double? in
+                guard room.map({ (room: (content: CGSize, shown: CGSize)) -> Bool in room.content[keyPath: axis] > room.shown[keyPath: axis] }) != false else { return nil }
+                return area?.facts[attribute]?.element.flatMap { (bar: Int) -> Double? in held[bar]?.facts[kAXValueAttribute]?.number }
             }
             let universal: [String] = [kAXRaiseAction, NSAccessibility.Action.scrollToVisibleAction.rawValue]
             let unstated: Set<String> = kind.defaultActions.union(opensMenu ? universal : universal + [kAXShowMenuAction])

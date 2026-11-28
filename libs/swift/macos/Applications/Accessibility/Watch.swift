@@ -675,7 +675,7 @@ package actor Watch {
         let changed: [AXUIElement: Element] = Dictionary(
             uniqueKeysWithValues: marked.compactMap { (entry: (key: AXUIElement, value: Set<String>)) -> (AXUIElement, Element)? in
                 guard entry.value.contains(kAXValueChangedNotification), entry.value.isDisjoint(with: invalidating) else { return nil }
-                return (entry.key, read(entry.key, [kAXRoleAttribute, kAXValueAttribute, kAXTopLevelUIElementAttribute]).element)
+                return (entry.key, read(entry.key, [kAXRoleAttribute, kAXValueAttribute, kAXNumberOfCharactersAttribute, kAXTopLevelUIElementAttribute]).element)
             }
         )
         let scrollBars: [AXUIElement: Element] = changed.filter { (entry: (key: AXUIElement, value: Element)) -> Bool in entry.value.role == kAXScrollBarRole }
@@ -688,8 +688,11 @@ package actor Watch {
             restated.insert(element)
             let fact: Fact? = shown.facts[kAXValueAttribute].flatMap { (fact: Fact) -> Fact? in fact.elements.isEmpty ? fact : nil }
             guard fact != held.control.value else { continue }
+            let characters: Int? = held.control.numberOfCharacters.flatMap { _ in shown.facts[kAXNumberOfCharactersAttribute]?.integer }
             controls[ref]?.control.value = fact
+            controls[ref]?.control.numberOfCharacters = characters
             open[held.container]?.controls[index].value = fact
+            open[held.container]?.controls[index].numberOfCharacters = characters
             if let fact { emit(.value(control: ref, kind: held.control.kind, fact: fact)) }
             if let container = open[held.container] { try observe(container, opener: nil) }
         }
