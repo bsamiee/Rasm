@@ -4,6 +4,7 @@ import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
 import { type Agent, type Command, route, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, runHook, blockOnce, stream, type Tool } from '#/engine/events';
 import { type Engine, engine } from '#/engine/interface';
+import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
 import { type Draft, draft } from '#/prompt/draft';
 import { draw } from '#/ui/element';
@@ -14,7 +15,7 @@ import { observe, type Theme, theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Provided = Engine | Draft | Panes | Placed | Plugin | Theme | FileSystem.FileSystem | KeyValueStore.KeyValueStore | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
+type Provided = Engine | Ledger | Draft | Panes | Placed | Plugin | Theme | FileSystem.FileSystem | KeyValueStore.KeyValueStore | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
 interface Part<A, E, F> {
     readonly layer: Layer.Layer<A, E, Provided>;
     readonly hooks: Omit<Hooks<A | Provided, F>, 'turn.step'>;
@@ -82,6 +83,7 @@ function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>, l
                     Layer.provideMerge(
                         Layer.mergeAll(
                             engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))),
+                            Ledger.layer,
                             draft($),
                             panes(
                                 $,
@@ -147,9 +149,9 @@ function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & 
     return next(e);
 }
 
-function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F, S>, ...parts: readonly Part<P, Q, F>[]) {
-    const instance = instantiate<A | P, E | Q, F, S>(mod, parts);
-    const layer = Layer.mergeAll(mod.layer, ...parts.map(Struct.get('layer')));
+function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Error, F>, 'layer'>[] = []>(on: On, mod: Mod<A, E, F, S>, ...parts: P & { readonly [K in keyof P]: Part<Layer.Success<P[K]['layer']>, Layer.Error<P[K]['layer']>, F> }) {
+    const instance = instantiate<A | Layer.Success<P[number]['layer']>, E | Layer.Error<P[number]['layer']>, F, S>(mod, parts);
+    const layer = Layer.mergeAll(mod.layer, ...parts.map((part): P[number]['layer'] => part.layer));
     const hooked = (event: Hosted) => instance.tables.some((table) => table[event] !== undefined);
     const { matchers, hooks: bodies } = route(instance.tools, instance.agents, instance.commands);
     const { 'turn.step': step } = mod.hooks;
@@ -170,8 +172,14 @@ function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F
     if (hooked('plugin.register')) {
         on('plugin.register', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
+    if (hooked('agent.register')) {
+        on('agent.register', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, layer, e, next))).catch(recover);
+    }
     if (hooked('agent.offer')) {
         on('agent.offer', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooked('agent.spawn')) {
+        on('agent.spawn', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
     if (hooked('agent.report')) {
         on('agent.report', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);

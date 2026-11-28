@@ -1,6 +1,6 @@
 import type { Part } from '@rasm/claude-code/host';
-import { Array, Effect, Layer, Option, type PlatformError, Predicate } from 'effect';
-import { KeyValueStore } from 'effect/persistence';
+import { Skills } from '@rasm/claude-code/skills';
+import { Array, Effect, Option, type PlatformError } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,28 +24,28 @@ const cuts = (text: string): readonly Cut[] =>
         const body = text.indexOf('\n\n', heading) + 2;
         return { name: text.slice(heading, text.indexOf('\n', heading)), body, prefix: text.slice(body, at), at };
     });
-
-const whole = (store: KeyValueStore.KeyValueStore, cut: Cut) =>
-    Effect.map(
-        Effect.catch(store.get(`skill:${cut.name}`), (error) => Effect.as(Effect.logWarning(`store.get skill:${cut.name} failed, so its compaction keeps the engine's cut text`, error), undefined)),
-        (saved) => (Predicate.isString(saved) && saved.length > cut.prefix.length && saved.startsWith(cut.prefix) ? saved : `${cut.prefix}${MARKER}`),
+const whole = (cut: Cut) =>
+    Skills.use((skills) => skills.text(cut.name)).pipe(
+        Effect.catch((error) => Effect.as(Effect.logWarning('skill text unread, cut text kept', error).pipe(Effect.annotateLogs({ skill: cut.name })), Option.none<string>())),
+        Effect.map((saved) =>
+            saved.pipe(
+                Option.filter((full) => full.length > cut.prefix.length && full.startsWith(cut.prefix)),
+                Option.getOrElse(() => `${cut.prefix}${MARKER}`),
+            ),
+        ),
     );
-const restored = (text: string) =>
-    KeyValueStore.KeyValueStore.use((store) => {
-        const found = cuts(text);
-        return Effect.map(
-            Effect.forEach(found, (cut) => whole(store, cut)),
-            (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text),
-        );
-    });
+const restore = (text: string) => {
+    const found = cuts(text);
+    return Effect.map(Effect.forEach(found, whole), (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text));
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const skills: Part<never, never, PlatformError.PlatformError> = {
-    layer: Layer.empty,
+const skills: Part<Skills, never, PlatformError.PlatformError> = {
+    layer: Skills.layer,
     hooks: {
-        'skill.prompt': (e, next) => Effect.tap(next(e), (result) => KeyValueStore.KeyValueStore.use((store) => store.set(`skill:${e.skill}`, result.text)).pipe(Effect.catch((error) => Effect.logWarning(`store.set skill:${e.skill} failed, so its compaction keeps the engine's cut text`, error)))),
-        'prompt.attachment': (e, next) => (e.type === 'invoked_skills' ? Effect.flatMap(next(e), ({ text }) => Effect.map(text === null ? Effect.succeed(null) : restored(text), (shown) => ({ text: shown }))) : next(e)),
+        ...Skills.hooks,
+        'prompt.attachment': (e, next) => (e.type === 'invoked_skills' ? Effect.flatMap(next(e), ({ text }) => Effect.map(text === null ? Effect.succeed(null) : restore(text), (shown) => ({ text: shown }))) : next(e)),
     },
 };
 

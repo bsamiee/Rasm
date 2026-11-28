@@ -10,8 +10,10 @@
     "exports": {
         "./engine": "./engine/interface.ts",
         "./events": "./engine/events.ts",
+        "./ledger": "./engine/ledger.ts",
         "./peers": "./engine/peers.ts",
         "./host": "./engine/host.ts",
+        "./skills": "./engine/skills.ts",
         "./ask": "./ui/ask.ts",
         "./draft": "./prompt/draft.ts",
         "./element": "./ui/element.ts",
