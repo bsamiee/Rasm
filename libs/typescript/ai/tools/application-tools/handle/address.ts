@@ -136,14 +136,19 @@ const walk = Function.memoize((read: Address) => {
 const remember = Function.memoize((read: Address) => {
     const { containers } = read.map;
     const { located } = walk(read);
+    const lineage = (controls: Stored['controls'], at: Option.Option<string>, seen: HashSet.HashSet<string>): readonly string[] =>
+        Option.gen(function* () {
+            const held = yield* Option.filter(at, (locator) => !HashSet.has(seen, locator));
+            const control = yield* Record.get(controls, held);
+            return [...lineage(controls, control.parent, HashSet.add(seen, held)), ...Option.toArray(control.section), ...Option.toArray(Option.flatMap(Option.map(control.label, Struct.get('text')), label))];
+        }).pipe(Option.getOrElse(Array.empty<string>));
     const lead = (locator: string, seen: HashSet.HashSet<string>): readonly string[] =>
         Option.gen(function* () {
             const { container } = yield* Record.get(containers, locator);
             const openers = Array.sortWith(container.openers, ({ tally }) => tally.first, DateTime.Order);
             const from = yield* Array.findFirst(openers, (opener) => !HashSet.has(seen, opener.container));
             const held = yield* Record.get(containers, from.container);
-            const control = yield* Record.get(held.controls, from.control);
-            return [...lead(from.container, HashSet.add(seen, from.container)), ...Option.toArray(Option.flatMap(held.container.title, label)), ...Option.toArray(control.section), ...Option.toArray(Option.flatMap(Option.map(control.label, Struct.get('text')), label))];
+            return [...lead(from.container, HashSet.add(seen, from.container)), ...Option.toArray(Option.flatMap(held.container.title, label)), ...lineage(held.controls, Option.some(from.control), HashSet.empty())];
         }).pipe(Option.getOrElse(Array.empty<string>));
     const listed = Array.sortWith(Record.toEntries(containers), ([, entry]) => entry.container.tally.first, DateTime.Order).flatMap(([locator, entry]): readonly Extract<Node, { readonly live: false }>[] => {
         const container = { ...entry.container, _tag: 'container' as const, locator };
@@ -154,7 +159,7 @@ const remember = Function.memoize((read: Address) => {
         return [
             { ...traced, live: false, element: container, containers: [container], token: traced.path, value: Option.none() },
             ...controls.map(([at, control]) => {
-                const named = trace([...traced.above, ...Option.toArray(title), ...Option.toArray(control.section)], Option.flatMap(Option.map(control.label, Struct.get('text')), label));
+                const named = trace([...traced.above, ...Option.toArray(title), ...lineage(entry.controls, control.parent, HashSet.make(at)), ...Option.toArray(control.section)], Option.flatMap(Option.map(control.label, Struct.get('text')), label));
                 return { ...named, live: false as const, element: { ...control, _tag: 'control' as const, locator: at }, containers: [container] as const, token: Option.zipRight(named.name, named.path), value: Option.map(control.value, print(control.kind)) };
             }),
         ];
