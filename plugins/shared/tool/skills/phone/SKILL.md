@@ -94,6 +94,7 @@ Writes to the owner's phone restore what they changed:
 - `1001` "capability ... is not supported by this device" -> the phone lacks it, `.result.devices[].capabilities[].featureIdentifier` of `list devices` names every capability it has
 - `1000` device not found -> phone off the home Wi-Fi or asleep with no tunnel, `tunnelState` reads other than `connected`
 - Unsupported on this phone: `capture screen-record`, `simulate statusBar`, `info audio`, `settings audio`, `settings standby`
+- Screen video has no CoreDevice route, and a `capture screenshot` loop records state changes alone, as each screenshot takes seconds over Wi-Fi
 - `pymobiledevice3 developer core-device get-lockstate` answers "not implemented", `devicectl device info lockState` reads it
 - `bonjour` commands find nothing from a WezTerm shell (`No route to host`)
 
