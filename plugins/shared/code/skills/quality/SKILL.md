@@ -1,9 +1,9 @@
 ---
-name: refactor
-description: "Use when refactoring, reducing, or rebuilding code or configuration in any language, covering reading, host and package derivation, removal, member structure, and adversary passes"
+name: quality
+description: "Use when building, rebuilding, or restructuring code or configuration in any language, covering reading, host and package derivation, removal, member structure, and adversary passes"
 ---
 
-# [CODE_REFACTOR]
+# [CODE_QUALITY]
 
 Refactors read a file whole with its consumers, hosts, and packages, call each behavior and value at its owner in rank (a language feature or standard member, then a package or host member at its installed release, then a declaration in the tree, then code), delete each declaration stating no fact of its own, rebuild each remaining member into one structure, deepen through packages and hosts as hard as they reduce, and end smaller, growth stands for a capability the base lacked alone, in its smallest form, after a smaller form was searched. Code, configuration, build, rule, and checker files take the same passes. Use `<language>:coding` skills for language form.
 

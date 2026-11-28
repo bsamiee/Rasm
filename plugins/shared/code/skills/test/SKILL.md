@@ -213,7 +213,7 @@ Production code under tests:
 - Before a first edit, apply breaks to code about to change and add a test for each break nothing catches
 - Tests red under a behavior-preserving change show changed behavior or coupling, rewrite a coupled test at an interface in its own step
 - When an interface changes on purpose, rewrite its tests for the new shape in a separate step
-- Use `code:refactor` for production rebuilds
+- Use `code:quality` for production rebuilds
 
 Tests:
 - Before a first edit, run fault injection over production files under test and record breaks caught

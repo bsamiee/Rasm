@@ -24,7 +24,7 @@
 - Use `cpp:unreal` skill for any work against a running Unreal Engine, its debugging, reloads, and logs
 - Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
 - Use `tool:inspect` skill for a vendor host fact its docs lack or contradict, read from installed files, logs, and binaries before any launch
-- Use `code:refactor` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
+- Use `code:quality` skill whenever code or configuration is written, rebuilt, or judged for quality
 - Use `search:web` skill for any fact outside the repository
 - Use `search:code` skill for any fact regarding an external dependency
 - Use `terminal:history` skill before rerunning, re-deriving, or asking what earlier work ran, printed, found, or settled

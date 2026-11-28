@@ -1,12 +1,12 @@
 {
     "name": "code",
-    "description": "Refactoring and testing rules for any language",
+    "description": "Quality and testing rules for any language",
     "author": {
         "name": "Bardia Samiee"
     },
     "interface": {
         "displayName": "Code",
-        "shortDescription": "Refactoring and testing rules for any language",
+        "shortDescription": "Quality and testing rules for any language",
         "brandColor": "#090909"
     }
 }
