@@ -4,5 +4,5 @@ import ApplicationServer
 
 @main
 enum Rasad {
-    static func main() async { await ApplicationServer.main() }
+    @MainActor static func main() { ApplicationServer.main() }
 }
