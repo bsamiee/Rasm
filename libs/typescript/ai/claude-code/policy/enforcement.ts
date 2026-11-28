@@ -1,8 +1,8 @@
 import { Action, Decision } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import type { Frozen, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Cause, Duration, Effect, type Layer, Match, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { answer, close, hosted, open, type Proceed, recover, track } from '#/engine/host';
+import { Cause, Duration, Effect, Match, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import { answer, hosted, type Proceed, recover } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
 import { layer, Session } from '#/policy/session';
 
@@ -104,24 +104,11 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function enforce(on: On, policy: Policy) {
-    const instance = hosted<Layer.Success<ReturnType<typeof layer>>, Layer.Error<ReturnType<typeof layer>>>(Option.none());
-    on('session.start', ($, e, next) => open($, instance, layer($), undefined, e, next)).catch(recover);
-    on('session.end', ($, e, next) => close($, instance, layer($), (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)), e, next)).catch(recover);
-    on('turn.start', (_, e, next) => {
-        track(instance, e.agentId, true);
-        return next(e);
-    }).catch(recover);
-    on('turn.complete', (_, e, next) => {
-        track(instance, e.agentId, false);
-        return next(e);
-    }).catch(recover);
-    on('session.compact', ($, e, next) => answer($, instance, layer($), (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))), e, next)).catch(recover);
-    on('tool.call', ($, e, next) =>
-        answer(
-            $,
-            instance,
-            layer($),
-            (called, proceed) =>
+    const instance = hosted({
+        hooks: {
+            'session.end': (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)),
+            'session.compact': (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))),
+            'tool.call': (called, proceed) =>
                 Option.match(
                     Option.filter(Schema.decodeUnknownOption(ToolCall)(called), ({ _tag }) => policy.appliesTo(_tag)),
                     {
@@ -129,10 +116,14 @@ function enforce(on: On, policy: Policy) {
                         onSome: (action) => judge(policy, called, proceed, action),
                     },
                 ),
-            e,
-            next,
-        ),
-    ).catch(recover);
+        },
+    });
+    on('session.start', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    on('session.end', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    on('turn.start', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    on('turn.complete', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    on('session.compact', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    on('tool.call', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
