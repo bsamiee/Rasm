@@ -33,6 +33,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, ancho
                 namedInputs: { default: crateInputs(workspace, held, sources) },
                 ...(implicit !== undefined && { implicitDependencies: [...implicit] }),
                 ...shipped,
+                tags: ['technology:rust', ...(shipped.tags ?? [])],
                 targets,
             };
         });
