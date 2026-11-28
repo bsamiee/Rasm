@@ -47,7 +47,7 @@ Sessions run one loop, one pass per unit, scratch files under `<scratch>/reduce-
 5. Rebuild: each declaration with every reader and duplicate site in one change, leaving no adapter, alias, old path, or mention
 6. Check: reference check commands over pass paths, each alone in the background, green
 7. Diff: `git add -N <new paths>`, then `git diff -- <paths>` read whole under close rules, each regression rebuilt before the commit
-8. Commit: `git commit -- <paths>`, subject `refactor(<nx-project>): <imperative naming unit and category>`, no scope across projects
+8. Commit: `git add -- <paths>`, own hunks of a shared file by `git apply --cached`, subject `refactor(<nx-project>): <unit and category>`
 9. Re-rank: each touched file reread, finished findings struck, exposed findings added, then step 3
 10. Stop: no finding of `$concern` left in `$target`, a decision belongs to the user, or each finding left needs a source no read reached
 
@@ -56,7 +56,7 @@ Survey signals rank before any whole read, each tool run once per question over 
 - Size and clones: jscpd lines and branching per file deciding whole-read order, AST pairs touching the target ranked by lines times similarity
 - Dependents: projects depending on the target's project from `nx graph`, files from a language graph (`ruff analyze graph`)
 - Joins: outline names against token counts, giving file-private declarations with one reader and name pairs differing by case
-- Leads: exports no reader reaches from a language's unused-code tool (knip, codelens `find_unused_symbols`, `cargo shear`)
+- Leads: exports and dependency rows no reader reaches from a language's unused-code tool (knip, codelens `find_unused_symbols`, `cargo shear`)
 
 Failures name their cause before the next edit:
 - Repository checker refusing a rebuild -> checker review under map constraints first, the pass resuming after a wrong rule's own pass
