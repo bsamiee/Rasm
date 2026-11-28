@@ -1,5 +1,6 @@
 import type { EngineInterface, EventName, FsStat, FsStatOptions } from 'claude-code';
 import { Array, Bytes, ByteSize, Cause, Clock, ConfigProvider, DateTime, Effect, Exit, Fiber, FileSystem, Formatter, Function, Layer, Logger, Match, Option, Path, PlatformError, Predicate, Queue, Record, Redacted, Result, Scheduler, Sink, Stream, String } from 'effect';
+import { KeyValueStore } from 'effect/persistence';
 import { ChildProcess, ChildProcessSpawner, type CommandLine } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -54,6 +55,9 @@ const reveal = (word: CommandLine.Word) => (Redacted.isRedacted(word) ? Redacted
 function services($: EngineInterface) {
     const stat = (path: string, options?: FsStatOptions) => call('fs.stat', path, () => $.fs.stat(path, options));
     const list = (path: string) => call('fs.list', path, () => $.fs.list(path));
+    const stored = <A>(method: 'get' | 'set' | 'delete' | 'keys', key: string | undefined, run: () => PromiseLike<A>) =>
+        call(`store.${method}`, key ?? $.plugin.name, run).pipe(Effect.mapError((cause) => new KeyValueStore.KeyValueStoreError({ method, ...(key === undefined ? {} : { key }), message: cause.message, cause })));
+    const keys = stored('keys', undefined, () => $.store.keys());
     return Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem)(
             FileSystem.make(
@@ -172,6 +176,20 @@ function services($: EngineInterface) {
                     });
                 }),
             ),
+        ),
+        Layer.succeed(KeyValueStore.KeyValueStore)(
+            KeyValueStore.makeStringOnly({
+                get: (key) =>
+                    Effect.map(
+                        stored('get', key, () => $.store.get(key)),
+                        (value) => (Predicate.isString(value) ? value : undefined),
+                    ),
+                set: (key, value) => stored('set', key, () => $.store.set(key, value)),
+                remove: (key) => stored('delete', key, () => $.store.delete(key)),
+                clear: Effect.flatMap(keys, (held) => Effect.forEach(held, (key) => stored('delete', key, () => $.store.delete(key)), { discard: true })),
+                size: Effect.map(keys, (held) => held.length),
+                keys,
+            }),
         ),
         ConfigProvider.layer(call('process.hookEnv', $.plugin.name, () => $.process.hookEnv()).pipe(Effect.map(ConfigProvider.fromEnvRecord))),
         Path.layer,

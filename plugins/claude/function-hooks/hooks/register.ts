@@ -1,4 +1,5 @@
 import { enforce } from '@rasm/claude-code/enforcement';
+import { host } from '@rasm/claude-code/host';
 import { git } from '@rasm/policy/git';
 import { Policy } from '@rasm/policy/policy';
 import type { On } from 'claude-code';
@@ -12,7 +13,7 @@ import { waits } from '#/rules/waits';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function register(on: On) {
-    enforce(on, new Policy(git, search, removal, programs, waits, tasks, ghidra));
+    host(on, enforce(new Policy(git, search, removal, programs, waits, tasks, ghidra)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

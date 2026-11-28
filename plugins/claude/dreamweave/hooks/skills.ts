@@ -1,5 +1,6 @@
-import type { EngineInterface, On } from 'claude-code';
-import { Array, Cause, Effect, Option, Predicate } from 'effect';
+import type { Part } from '@rasm/claude-code/host';
+import { Array, Effect, Layer, Option, type PlatformError, Predicate } from 'effect';
+import { KeyValueStore } from 'effect/persistence';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,44 +25,29 @@ const cuts = (text: string): readonly Cut[] =>
         return { name: text.slice(heading, text.indexOf('\n', heading)), body, prefix: text.slice(body, at), at };
     });
 
-function whole($: EngineInterface, cut: Cut) {
-    return Effect.map(
-        Effect.promise(() => $.store.get(`skill:${cut.name}`)),
+const whole = (store: KeyValueStore.KeyValueStore, cut: Cut) =>
+    Effect.map(
+        Effect.catch(store.get(`skill:${cut.name}`), (error) => Effect.as(Effect.logWarning(`store.get skill:${cut.name} failed, so its compaction keeps the engine's cut text`, error), undefined)),
         (saved) => (Predicate.isString(saved) && saved.length > cut.prefix.length && saved.startsWith(cut.prefix) ? saved : `${cut.prefix}${MARKER}`),
     );
-}
-
-function restored($: EngineInterface, text: string) {
-    const found = cuts(text);
-    return Effect.map(
-        Effect.forEach(found, (cut) => whole($, cut)),
-        (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text),
-    );
-}
+const restored = (text: string) =>
+    KeyValueStore.KeyValueStore.use((store) => {
+        const found = cuts(text);
+        return Effect.map(
+            Effect.forEach(found, (cut) => whole(store, cut)),
+            (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text),
+        );
+    });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function skills(on: On) {
-    on('skill.prompt', ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const result = yield* Effect.promise(() => next(e));
-                yield* Effect.tryPromise({ try: () => $.store.set(`skill:${e.skill}`, result.text), catch: (cause) => new Cause.UnknownError(cause, `store.set skill:${e.skill} failed, so its compaction keeps the engine's cut text`) }).pipe(
-                    Effect.catch((error) => Effect.sync(() => $.ui.log(error.message, { to: 'debug' }))),
-                );
-                return result;
-            }),
-        ),
-    );
-    on('prompt.attachment', { type: 'invoked_skills' }, ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const { text } = yield* Effect.promise(() => next(e));
-                return { text: text === null ? null : yield* restored($, text) };
-            }),
-        ),
-    );
-}
+const skills: Part<never, never, PlatformError.PlatformError> = {
+    layer: Layer.empty,
+    hooks: {
+        'skill.prompt': (e, next) => Effect.tap(next(e), (result) => KeyValueStore.KeyValueStore.use((store) => store.set(`skill:${e.skill}`, result.text)).pipe(Effect.catch((error) => Effect.logWarning(`store.set skill:${e.skill} failed, so its compaction keeps the engine's cut text`, error)))),
+        'prompt.attachment': (e, next) => (e.type === 'invoked_skills' ? Effect.flatMap(next(e), ({ text }) => Effect.map(text === null ? Effect.succeed(null) : restored(text), (shown) => ({ text: shown }))) : next(e)),
+    },
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

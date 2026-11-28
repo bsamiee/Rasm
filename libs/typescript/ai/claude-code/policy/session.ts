@@ -1,11 +1,9 @@
 import { Shell } from '@rasm/shell';
-import type { EngineInterface } from 'claude-code';
 import { Array, Cache, Config, Context, Duration, Effect, Exit, FiberSet, FileSystem, Glob, Hash, Layer, Option, Order, Path, PlatformError, Record } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
 import { Engine } from '#/engine/interface';
-import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -82,16 +80,20 @@ class Session extends Context.Service<
                 watch: FiberSet.run(yield* FiberSet.make()),
             };
         }),
+    ).pipe(
+        Layer.provideMerge(
+            Layer.effect(
+                Shell,
+                Effect.gen(function* () {
+                    const [engine, fs, path, root] = yield* Effect.all([Engine, FileSystem.FileSystem, Path.Path, Config.String('CLAUDE_PLUGIN_ROOT')]);
+                    const module = yield* Effect.flatMap(fs.readFile(path.join(root, 'hooks', 'main.wasm')), engine.compile);
+                    return yield* Shell.make({ processor: getProcessor(module) });
+                }),
+            ),
+        ),
     );
-}
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-function layer($: EngineInterface) {
-    const shell = call('wasm.compile', './main.wasm', () => $.wasm.compile('./main.wasm')).pipe(Effect.flatMap((module) => Shell.make({ processor: getProcessor(module) })));
-    return Session.layer.pipe(Layer.provideMerge(Layer.effect(Shell, shell)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { layer, Session };
+export { Session };

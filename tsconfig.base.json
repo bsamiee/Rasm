@@ -69,7 +69,7 @@
                     "unnecessaryArrowBlock": "error",
                     "unnecessaryFailYieldableError": "error"
                 },
-                "overrides": [{ "include": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } }]
+                "overrides": [{ "include": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx", "**/ai/claude-code/engine/host.ts"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } }]
             }
         ]
     }

@@ -1,5 +1,6 @@
 import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane } from 'claude-code';
 import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, Record, Struct } from 'effect';
+import { settled } from '#/engine/events';
 import { call } from '#/engine/services';
 import type { Render } from '#/ui/render';
 
@@ -40,9 +41,7 @@ function closing<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, 
                     ),
                     { signal: next.signal },
                 )
-                .catch((error: unknown) => {
-                    throw next.signal.aborted ? next.signal.reason : error;
-                }),
+                .catch(settled(next.signal)),
     });
 }
 

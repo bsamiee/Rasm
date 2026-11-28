@@ -189,6 +189,12 @@
             }
         },
         {
+            "files": ["**/ai/claude-code/engine/host.ts"], // The engine's validator reads one literal on() per event, each behind the guard keeping an unhooked event off the worker
+            "rules": {
+                "complexity": "off"
+            }
+        },
+        {
             "files": ["**/creative-cloud/*/host.ts"], // Adobe hosts run ES3 (ExtendScript) or ES5 (Acrobat SpiderMonkey 24), swc lowers syntax alone
             "rules": {
                 "complexity": "off",

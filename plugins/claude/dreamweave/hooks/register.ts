@@ -1,8 +1,11 @@
 import { enforce } from '@rasm/claude-code/enforcement';
+import { Engine, Notice } from '@rasm/claude-code/engine';
+import { host } from '@rasm/claude-code/host';
 import { Policy } from '@rasm/policy/policy';
 import { Call } from '@rasm/report';
-import type { EngineInterface, On } from 'claude-code';
-import { Array, Effect, Equal, Glob, HashSet, Match, Option, Predicate, Record, Ref, Schema, Semaphore } from 'effect';
+import type { On } from 'claude-code';
+import { Array, Config, Duration, Effect, Equal, FileSystem, Glob, HashSet, Layer, Match, Option, Path, Predicate, Record, Ref, Schema, Semaphore, Stream } from 'effect';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { skills } from '#/hooks/skills';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -32,7 +35,6 @@ interface Reach {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const INDEX = 'MEMORY.md';
-const MARKDOWN = /\.md$/u;
 const GENERATED = `After writing the file, stop: \`${INDEX}\` is generated from each memory file's \`description\` after every write, one line per file, and loaded into context each session, so never write or edit \`${INDEX}\` itself. Keep each \`description\` to one specific line of at most 150 characters, as it is that file's line in the index.`;
 const POINTER: readonly (readonly [RegExp, string])[] = [
     [new RegExp(`^(?:After writing the file, add a one-line pointer in \`${RegExp.escape(INDEX)}\`|\\*\\*Step 2\\*\\* — add a pointer to that file in ).*$`, 'mu'), GENERATED],
@@ -69,29 +71,20 @@ const Memories = Row.pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-function real($: EngineInterface, path: string) {
-    return Effect.promise(() =>
-        $.fs
-            .stat(path, { resolve: true })
-            .then(({ realPath }) => realPath ?? path)
-            .catch(() => path),
+const real = (path: string) => FileSystem.FileSystem.use((fs) => fs.realPath(path)).pipe(Effect.orElseSucceed(() => path));
+const spawned = (command: ChildProcess.Command) =>
+    ChildProcessSpawner.ChildProcessSpawner.use((processes) =>
+        Effect.scoped(Effect.flatMap(processes.spawn(command), (handle) => Effect.all({ stdout: handle.stdout.pipe(Stream.decodeText, Stream.mkString), stderr: handle.stderr.pipe(Stream.decodeText, Stream.mkString), exitCode: handle.exitCode }, { concurrency: 'unbounded' }))),
     );
-}
-
-function dirty($: EngineInterface, root: string) {
-    return Effect.map(
-        Effect.promise(() => $.process.run(['git', '-C', root, 'status', '--porcelain'])),
-        ({ exitCode, stdout }) => exitCode !== 0 || stdout.trim() !== '',
-    );
-}
-
-function regenerate($: EngineInterface, root: string, memories: Ref.Ref<readonly Memory[]>) {
-    return Effect.promise(() => Promise.all([$.session.root(), $.process.hookEnv()])).pipe(
-        Effect.flatMap(([project, env]) => Effect.promise(() => $.process.run(['uv', 'run', '--locked', '--script', `${$.plugin.root}/skills/memory/scripts/index.py`, root, project, '--table'], { env, timeoutMs: 120_000 }))),
-        Effect.tap(({ stdout }) => Option.match(Schema.decodeOption(Memories)(stdout), { onNone: () => Effect.void, onSome: (rows) => Ref.set(memories, rows.map(compiled)) })),
-        Effect.map(({ exitCode, stderr }) => ({ failed: exitCode !== 0, report: stderr.trim() })),
-    );
-}
+const dirty = (root: string) => Effect.map(spawned(ChildProcess.make('git', ['-C', root, 'status', '--porcelain'])), ({ exitCode, stdout }) => exitCode !== 0 || stdout.trim() !== '');
+const regenerate = (root: string, memories: Ref.Ref<readonly Memory[]>) =>
+    Effect.gen(function* () {
+        const [engine, path, plugin, session] = yield* Effect.all([Engine, Path.Path, Config.String('CLAUDE_PLUGIN_ROOT'), Config.String('CLAUDE_CODE_SESSION_ID')]);
+        const project = yield* engine.root;
+        const { exitCode, stdout, stderr } = yield* spawned(ChildProcess.make('uv', ['run', '--locked', '--script', path.join(plugin, 'skills', 'memory', 'scripts', 'index.py'), root, project, '--table'], { env: { CLAUDE_CODE_SESSION_ID: session }, extendEnv: true })).pipe(Effect.timeout(Duration.minutes(2)));
+        yield* Option.match(Schema.decodeOption(Memories)(stdout), { onNone: () => Effect.void, onSome: (rows) => Ref.set(memories, rows.map(compiled)) });
+        return { failed: exitCode !== 0, report: stderr.trim() };
+    });
 
 const runs = (invocation: Invocation, { program, words, flags }: Form) => {
     const stated = [...invocation.path, ...Array.getSomes(invocation.operands.map(({ word }) => word.text))];
@@ -145,29 +138,61 @@ function register(on: On) {
     const state: { root?: string } = {};
     const [memories, read, lock] = [Ref.makeUnsafe<readonly Memory[]>([]), Ref.makeUnsafe<Opened>(HashSet.empty()), Semaphore.makeUnsafe(1)];
     const queued = Semaphore.withPermit(lock);
-    enforce(on, new Policy(triggers(told(memories, read))));
-    skills(on);
-    on('prompt.section', { name: 'memory' }, (_, e, next) =>
-        next(e).then((answer) => {
-            const text = answer.text === null ? null : POINTER.reduce((swapped, [pattern, replacement]) => swapped.replace(pattern, replacement), answer.text);
-            return { ...answer, text: text !== null && text === answer.text ? `${text}\n\nThis Claude Code release words the memory section above in a form the dreamweave plugin does not recognize, so its steps may still name \`${INDEX}\`. ${GENERATED}` : text };
-        }),
-    );
-    on('prompt.context', ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const answer = yield* Effect.promise(() => next(e));
-                const files = answer.instructionFiles ?? e.instructionFiles ?? [];
-                const file = files.find(({ kind }) => kind === 'memory');
-                if (file === undefined) {
-                    return answer;
-                }
-                const root = (yield* real($, file.path)).slice(0, -INDEX.length);
-                state.root = root;
-                const [{ failed, report }, content] = yield* Effect.all([queued(regenerate($, root, memories)), Effect.promise(() => $.fs.read(file.path))]);
-                return { blocks: failed ? [...answer.blocks, { name: 'memoryIndex', text: report }] : answer.blocks, instructionFiles: files.map((row) => (row === file ? { ...row, content } : row)) };
-            }),
-        ),
+    const refreshed = (root: string) => Effect.tap(queued(regenerate(root, memories)), () => Engine.use((engine) => engine.invalidate('prompt.context')));
+    host(
+        on,
+        {
+            layer: Layer.empty,
+            hooks: {
+                ...skills.hooks,
+                'prompt.section': (e, next) =>
+                    e.name === 'memory'
+                        ? Effect.map(next(e), (answer) => {
+                              const text = answer.text === null ? null : POINTER.reduce((swapped, [pattern, replacement]) => swapped.replace(pattern, replacement), answer.text);
+                              return { ...answer, text: text !== null && text === answer.text ? `${text}\n\nThis Claude Code release words the memory section above in a form the dreamweave plugin does not recognize, so its steps may still name \`${INDEX}\`. ${GENERATED}` : text };
+                          })
+                        : next(e),
+                'prompt.context': (e, next) =>
+                    Effect.gen(function* () {
+                        const answer = yield* next(e);
+                        const files = answer.instructionFiles ?? e.instructionFiles ?? [];
+                        const file = files.find(({ kind }) => kind === 'memory');
+                        if (file === undefined) {
+                            return answer;
+                        }
+                        const root = (yield* real(file.path)).slice(0, -INDEX.length);
+                        state.root = root;
+                        const [{ failed, report }, content] = yield* Effect.all([queued(regenerate(root, memories)), FileSystem.FileSystem.use((fs) => fs.readFileString(file.path))]);
+                        return { blocks: failed ? [...answer.blocks, { name: 'memoryIndex', text: report }] : answer.blocks, instructionFiles: files.map((row) => (row === file ? { ...row, content } : row)) };
+                    }),
+                'tool.call': (e, next) =>
+                    Effect.gen(function* () {
+                        const path = e['file_path'];
+                        const target = (e.tool === 'Write' || e.tool === 'Edit') && Predicate.isString(path) ? Option.some(yield* real(path)) : Option.none();
+                        const { root } = state;
+                        if (root !== undefined && Option.contains(target, `${root}${INDEX}`)) {
+                            return { deny: `\`${INDEX}\` is generated from each memory file's \`description\` after every write: edit the \`description\` of the memory file instead, and its index line follows.` };
+                        }
+                        const answer = yield* next(e);
+                        if (answer.deny !== undefined || root === undefined || !Option.exists(target, (written) => written.endsWith('.md') && written.startsWith(root))) {
+                            return answer;
+                        }
+                        const { report } = yield* refreshed(root);
+                        return { ...answer, context: [...(answer.context ?? []), report] };
+                    }),
+                'turn.complete': (e, next) =>
+                    Effect.gen(function* () {
+                        const [answer, { root }] = [yield* next(e), state];
+                        if (root === undefined || !(yield* queued(dirty(root)))) {
+                            return answer;
+                        }
+                        const { report } = yield* refreshed(root);
+                        yield* Engine.use((engine) => engine.deliver(Notice.Note({ text: report, agent: Option.none() })));
+                        return answer;
+                    }),
+            },
+        },
+        enforce(new Policy(triggers(told(memories, read)))),
     );
     on('classic.PostCompact', (_, e, next) => {
         const agent = Option.fromUndefinedOr(e.agent_id);
@@ -179,44 +204,6 @@ function register(on: On) {
         );
         return next(e);
     });
-    on('tool.call', { tool: ['Write', 'Edit'], file_path: new RegExp(`${RegExp.escape(INDEX)}$`, 'u') }, ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const path = e['file_path'];
-                const target = Predicate.isString(path) ? yield* real($, path) : undefined;
-                return state.root !== undefined && target === `${state.root}${INDEX}` ? { deny: `\`${INDEX}\` is generated from each memory file's \`description\` after every write: edit the \`description\` of the memory file instead, and its index line follows.` } : yield* Effect.promise(() => next(e));
-            }),
-        ),
-    );
-    on('tool.run', { tool: ['Write', 'Edit'], file_path: MARKDOWN }, ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const [{ root }, path] = [state, e['file_path']];
-                const answer = yield* Effect.promise(() => next(e));
-                const target = Predicate.isString(path) ? yield* real($, path) : undefined;
-                if (answer.deny !== undefined || root === undefined || target?.startsWith(root) !== true) {
-                    return answer;
-                }
-                const { report } = yield* queued(regenerate($, root, memories));
-                $.ui.invalidate('prompt.context');
-                return { ...answer, context: [...(answer.context ?? []), report] };
-            }),
-        ),
-    );
-    on('classic.Stop', ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const [answer, { root }] = [yield* Effect.promise(() => next(e)), state];
-                if (root === undefined || !(yield* queued(dirty($, root)))) {
-                    return answer;
-                }
-                const { report } = yield* queued(regenerate($, root, memories));
-                $.ui.invalidate('prompt.context');
-                yield* Effect.promise(() => $.session.append({ message: { type: 'user', content: [{ type: 'text', text: report }] } }));
-                return answer;
-            }),
-        ),
-    );
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

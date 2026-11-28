@@ -1,5 +1,6 @@
 import type { EngineInterface, Frozen, Next, PaneOpenArgs, RenderComponent, RenderElement, RenderInput, RenderPropsOf, ThemeScene, UiPointerInput } from 'claude-code';
 import { Effect, Layer, type ManagedRuntime, Match, Option, type PlatformError, Predicate, type Record, Ref, Stream } from 'effect';
+import { settled } from '#/engine/events';
 import { Engine } from '#/engine/interface';
 import { call } from '#/engine/services';
 import { draw, type Element } from '#/ui/element';
@@ -58,9 +59,7 @@ function drawn<C extends RenderComponent, S, R, E, F>($: EngineInterface, row: R
                     ),
                     { signal: next.signal },
                 )
-                .catch((error: unknown) => {
-                    throw next.signal.aborted ? next.signal.reason : error;
-                }),
+                .catch(settled(next.signal)),
     });
 }
 
@@ -104,9 +103,7 @@ function pointer<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen
                         ),
                         { signal: next.signal },
                     )
-                    .catch((error: unknown) => {
-                        throw next.signal.aborted ? next.signal.reason : error;
-                    }),
+                    .catch(settled(next.signal)),
         },
     );
 }

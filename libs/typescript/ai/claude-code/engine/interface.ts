@@ -9,6 +9,7 @@ type Notice = Data.TaggedEnum<{
     Notification: { readonly key: string; readonly text: Option.Option<string> };
     Band: { readonly group: string; readonly rows: Record.ReadonlyRecord<string, string> };
     Message: { readonly text: string; readonly agent: Option.Option<string> };
+    Note: { readonly text: string; readonly agent: Option.Option<string> };
 }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -26,11 +27,13 @@ class Engine extends Context.Service<
     {
         readonly deliver: (notice: Notice) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly invalidate: (event: InvalidatableEventName) => Effect.Effect<void>;
+        readonly compile: (bytes: Uint8Array) => Effect.Effect<WebAssembly.Module, PlatformError.PlatformError>;
         readonly focus: (args: UiFocusArgs) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly scroll: (args: UiScrollArgs) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly fetch: (url: string, init?: HttpInit) => Effect.Effect<HttpResponse, PlatformError.PlatformError>;
         readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
         readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
+        readonly root: Effect.Effect<string, PlatformError.PlatformError>;
         readonly findAgent: (id: string) => Effect.Effect<Option.Option<AgentInfo>, PlatformError.PlatformError>;
         readonly isRunning: (agent: Option.Option<string>) => Effect.Effect<boolean>;
         readonly turns: Stream.Stream<HashSet.HashSet<Option.Option<string>>>;
@@ -50,6 +53,15 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                     (sent) => (sent.isSent ? Effect.void : Effect.log(`notification ${key} not sent: ${sent.reason}`)),
                 ),
         });
+    const note = (text: string, agent: Option.Option<string>) =>
+        Effect.asVoid(
+            call(
+                'session.append',
+                Option.getOrElse(agent, () => 'main'),
+                () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...Option.match(agent, { onNone: () => ({}), onSome: (agentId) => ({ agentId }) }) }),
+                ({ deny }) => deny,
+            ),
+        );
     const show = (group: string, shown: Record.ReadonlyRecord<string, string>) =>
         Effect.fromOption(band, () => PlatformError.badArgument({ module: 'Engine', method: 'deliver', description: `band rows of ${group}, as this mod draws no band` })).pipe(
             Effect.flatMap((rows) => Ref.modify(rows, (held) => [Record.keys(Record.difference(shown, held[group] ?? {})), Record.isEmptyReadonlyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)] as const)),
@@ -74,17 +86,11 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                         Toast: ({ text }) => Effect.sync(() => $.ui.toast(text)),
                         Notification: ({ key, text }) => notification(key, text),
                         Band: ({ group, rows }) => show(group, rows),
+                        Note: ({ text, agent }) => note(text, agent),
                         Message: ({ text, agent }) =>
                             Effect.flatMap(isRunning(agent), (busy) =>
                                 Match.value({ busy, agentId: Option.getOrUndefined(agent) }).pipe(
-                                    Match.when({ busy: true }, ({ agentId }) =>
-                                        call(
-                                            'session.append',
-                                            agentId ?? 'main',
-                                            () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) }),
-                                            ({ deny }) => deny,
-                                        ),
-                                    ),
+                                    Match.when({ busy: true }, () => note(text, agent)),
                                     Match.when({ agentId: Match.string }, ({ agentId }) =>
                                         call(
                                             'session.send',
@@ -106,6 +112,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                             ),
                     }),
                 invalidate: (event: InvalidatableEventName) => Effect.sync(() => $.ui.invalidate(event)),
+                compile: (bytes: Uint8Array) => call('wasm.compile', `${bytes.byteLength} bytes`, () => $.wasm.compile(bytes)),
                 focus: (args: UiFocusArgs) =>
                     Effect.asVoid(
                         call(
@@ -127,6 +134,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                 fetch: (url: string, init?: HttpInit) => call('http.fetch', url, () => $.http.fetch(url, init)),
                 callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
                 cwd: call('session.cwd', 'main', () => $.session.cwd()),
+                root: call('session.root', 'main', () => $.session.root()),
                 findAgent: (id: string) =>
                     Effect.map(
                         call('agent.list', id, () => $.agent.list()),

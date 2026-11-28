@@ -1,11 +1,12 @@
 import { Action, Decision, type Outcome } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import { Line, Report } from '@rasm/report';
-import type { Frozen, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Cause, Duration, Effect, Match, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { answer, hosted, type Proceed, recover } from '#/engine/host';
+import type { Frozen, ToolCallInput, ToolCallResult } from 'claude-code';
+import { Cause, Duration, Effect, type Layer, Match, type PlatformError, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import type { Proceed } from '#/engine/events';
+import type { Part } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
-import { layer, Session } from '#/policy/session';
+import { Session } from '#/policy/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -116,8 +117,9 @@ const hear = (policy: Policy, e: Frozen<ToolCallInput>, result: ToolCallResult) 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function enforce(on: On, policy: Policy) {
-    const instance = hosted({
+function enforce(policy: Policy): Part<Layer.Success<typeof Session.layer>, Layer.Error<typeof Session.layer>, PlatformError.PlatformError> {
+    return {
+        layer: Session.layer,
         hooks: {
             'session.end': (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)),
             'session.compact': (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))),
@@ -132,13 +134,7 @@ function enforce(on: On, policy: Policy) {
                 return policy.appliesTo('Output') ? Effect.flatMap(ran, (result) => hear(policy, called, result)) : ran;
             },
         },
-    });
-    on('session.start', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
-    on('session.end', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
-    on('turn.start', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
-    on('turn.complete', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
-    on('session.compact', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
-    on('tool.call', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
+    };
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
