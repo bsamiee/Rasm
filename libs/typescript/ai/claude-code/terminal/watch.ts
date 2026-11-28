@@ -1,10 +1,6 @@
 import { run } from '@rasm/process';
-import { Array, Config, Context, Effect, FileSystem, HashSet, Layer, Option, Path, Schema, String } from 'effect';
+import { Array, Context, Effect, FileSystem, HashSet, Layer, Option, Path, Schema, String } from 'effect';
 import { ChildProcessSpawner } from 'effect/process';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const OUTSIDE = { ZELLIJ: undefined, ZELLIJ_SESSION_NAME: undefined, ZELLIJ_PANE_ID: undefined } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,16 +14,13 @@ class Pane extends Schema.Class<Pane, { readonly brand: unique symbol }>('@rasm/
     attention: Schema.Struct({ status: Schema.String, source: Schema.NullOr(Schema.String), text: Schema.String, since_ms: Schema.Int, muted: Schema.NullOr(Schema.String) }),
 }) {
     static readonly list = Effect.fnUntraced(function* (session: Option.Option<string>) {
-        const { stdout } = yield* Option.match(session, {
-            onNone: () => run(['zellij', 'action', 'list-panes', '--json']),
-            onSome: (named) => zellij(['--session', named, 'action', 'list-panes', '--json']),
-        });
-        return yield* Effect.transposeOption(Option.map(Schema.decodeOption(Json)(stdout), Schema.decodeUnknownEffect(Listing)));
+        const { stdout } = yield* run(['zellij', ...Option.match(session, { onNone: () => [], onSome: (named) => ['--session', named] }), 'action', 'list-panes', '--json']);
+        const listing = yield* Effect.transposeOption(Option.map(Schema.decodeOption(Json)(stdout), Schema.decodeUnknownEffect(Listing)));
+        return Option.map(listing, (panes) => panes.filter((pane) => !pane.is_plugin && !pane.exited));
     });
 }
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Listing = Schema.Array(Pane);
-const Opened = Schema.TemplateLiteral(['terminal_', Schema.Int]);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -35,7 +28,7 @@ class Watch extends Context.Service<
     Watch,
     {
         readonly views: Effect.Effect<readonly Pane[], Effect.Error<ReturnType<typeof Pane.list>>>;
-        readonly during: <A, E, R>(call: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
+        readonly run: <A, E, R>(call: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     }
 >()('@rasm/claude-code/terminal/watch') {
     static readonly layer = (session: string) =>
@@ -43,13 +36,12 @@ class Watch extends Context.Service<
             Watch,
             Effect.gen(function* () {
                 const [fs, path, processes] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
-                const listed = Pane.list(Option.some(session));
+                const listed = Effect.provideService(Pane.list(Option.some(session)), ChildProcessSpawner.ChildProcessSpawner, processes);
                 const folder = yield* Effect.cached(
-                    run(['id', '-u']).pipe(
-                        Effect.flatMap(({ stdout }) => Schema.decodeEffect(Schema.FiniteFromString)(String.trim(stdout))),
-                        Effect.flatMap((uid) => Effect.map(Config.String('TMUX_TMPDIR').pipe(Config.withDefault('/tmp')), (tmp) => path.join(tmp, `tmux-${uid}`))),
-                        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes),
-                    ),
+                    Effect.gen(function* () {
+                        const [uid, tmp] = yield* Effect.all([run(['id', '-u']), run(['printenv', 'TMUX_TMPDIR']).pipe(Effect.catchTag('ExitError', (exited) => (exited.code === 1 ? Effect.succeed({ stdout: '/tmp' }) : exited)))], { concurrency: 'unbounded' });
+                        return path.join(String.trim(tmp.stdout), `tmux-${String.trim(uid.stdout)}`);
+                    }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes)),
                 );
                 const servers = folder.pipe(
                     Effect.flatMap(fs.readDirectory),
@@ -62,42 +54,39 @@ class Watch extends Context.Service<
                     Option.match({
                         onSome: () => Effect.void,
                         onNone: () =>
-                            zellij(['list-sessions', '--short']).pipe(
-                                Effect.flatMap(({ stdout }) => Effect.when(zellij(['delete-session', '--force', session]), Effect.succeed(Array.contains(Array.fromIterable(String.linesIterator(stdout)), session)))),
-                                Effect.andThen(zellij(['attach', '--create-background', session])),
+                            run(['zellij', 'list-sessions', '--short']).pipe(
+                                Effect.flatMap(({ stdout }) => Effect.when(run(['zellij', 'delete-session', '--force', session]), Effect.succeed(Array.contains(String.linesIterator(stdout), session)))),
+                                Effect.andThen(run(['zellij', 'attach', '--create-background', session])),
+                                Effect.andThen(run(['zellij', '--session', session, 'action', 'list-tabs'])),
+                                Effect.andThen(run(['zellij', '--session', session, 'action', 'mute-session'])),
                             ),
                     }),
                 );
-                const view = (socket: string, name: string) =>
-                    zellij(['--session', session, 'run', '--close-on-exit', '--name', `${socket} ${name}`, '--', 'tmux', '-L', socket, 'attach', '-f', 'read-only,ignore-size', '-t', name]).pipe(
-                        Effect.flatMap(({ stdout }) => Schema.decodeUnknownEffect(Opened)(String.trim(stdout))),
-                        Effect.tap((pane) => zellij(['--session', session, 'action', 'mute-pane', '--pane-id', pane])),
-                    );
-                const open = (socket: string) =>
-                    Effect.all({ names: tmux(socket, ['list-sessions', '-F', '#{session_name}']), viewers: tmux(socket, ['list-clients', '-f', '#{client_readonly}', '-F', '#{client_name}']) }, { concurrency: 'unbounded' }).pipe(
-                        Effect.flatMap(({ names, viewers }) =>
-                            Array.isReadonlyArrayNonEmpty(viewers)
-                                ? Effect.succeed(Array.empty<typeof Opened.Type>())
-                                : Effect.andThen(
-                                      Effect.when(created, Effect.succeed(Array.isReadonlyArrayNonEmpty(names))),
-                                      Effect.forEach(names, (name) => view(socket, name)),
-                                  ),
-                        ),
-                        Effect.tap((panes) => Effect.when(Effect.log('watch opened').pipe(Effect.annotateLogs({ socket, session, panes: panes.join(' ') })), Effect.succeed(Array.isReadonlyArrayNonEmpty(panes)))),
-                        Effect.catchCause((cause) => Effect.logWarning('watch failed', cause).pipe(Effect.annotateLogs({ socket, session }))),
-                        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes),
-                    );
+                const open = Effect.fnUntraced(
+                    function* (socket: string) {
+                        const [{ stdout: listing }, { stdout: viewers }] = yield* Effect.all([run(['tmux', '-L', socket, 'list-sessions', '-F', '#{session_name}']), run(['tmux', '-L', socket, 'list-clients', '-f', '#{client_readonly}', '-F', '#{client_name}'])], { concurrency: 'unbounded' });
+                        const names = Array.fromIterable(String.linesIterator(listing));
+                        yield* Effect.when(
+                            created.pipe(
+                                Effect.andThen(Effect.forEach(names, (name) => run(['zellij', '--session', session, 'run', '--close-on-exit', '--name', `${socket} ${name}`, '--', 'tmux', '-L', socket, 'attach', '-f', 'read-only,ignore-size', '-t', name]), { discard: true })),
+                                Effect.andThen(Effect.log('watch opened').pipe(Effect.annotateLogs('names', names.join(' ')))),
+                            ),
+                            Effect.succeed(Array.isReadonlyArrayNonEmpty(names) && String.isEmpty(viewers)),
+                        );
+                    },
+                    (opening) => Effect.catchCause(opening, (cause) => Effect.logWarning('watch failed', cause)),
+                    (opening, socket) => Effect.annotateLogs(opening, { socket, session }),
+                    Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes),
+                );
                 return {
-                    views: listed.pipe(
-                        Effect.map(
-                            Option.match({
-                                onNone: () => [],
-                                onSome: Array.filter((pane) => !pane.is_plugin && !pane.exited && pane.terminal_command !== null),
-                            }),
-                        ),
-                        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes),
+                    views: Effect.map(
+                        listed,
+                        Option.match({
+                            onNone: () => [],
+                            onSome: Array.filter((pane) => pane.terminal_command !== null),
+                        }),
                     ),
-                    during: Effect.fnUntraced(function* <A, E, R>(call: Effect.Effect<A, E, R>) {
+                    run: Effect.fnUntraced(function* <A, E, R>(call: Effect.Effect<A, E, R>) {
                         const before = yield* servers;
                         const result = yield* call;
                         yield* Effect.forEach(HashSet.difference(yield* servers, before), open, { discard: true });
@@ -107,11 +96,6 @@ class Watch extends Context.Service<
             }),
         );
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const zellij = (args: readonly string[]) => run(['zellij', ...args], { env: OUTSIDE });
-const tmux = (socket: string, args: readonly string[]) => Effect.map(run(['tmux', '-L', socket, ...args]), ({ stdout }) => Array.fromIterable(String.linesIterator(stdout)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
