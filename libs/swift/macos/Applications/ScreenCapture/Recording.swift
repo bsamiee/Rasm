@@ -6,6 +6,7 @@ import CoreImage
 import CoreMedia
 import Encoding
 package import Foundation
+import Results
 @unsafe @preconcurrency import ScreenCaptureKit
 import Synchronization
 import UniformTypeIdentifiers
@@ -264,8 +265,12 @@ extension Watch {
                     case .backingStore: throw unshown
                 }
             guard let application = windows.first?.owningApplication else { throw unshown }
-            let deadline = AsyncTimerSequence(interval: messagingTimeout * 2, clock: SuspendingClock())
+            let bound: Duration = messagingTimeout * 2
+            let deadline = AsyncTimerSequence(interval: bound, clock: SuspendingClock())
             let (expired, cancelled) = (ApplicationFailure(subject: subject, reason: .unanswered), ApplicationFailure(subject: subject, reason: .cancelled))
+            let answer = { @Sendable (error: (any Error)?) -> Result<Void, ApplicationFailure> in
+                error.map { (cause: any Error) -> Result<Void, ApplicationFailure> in .failure(ApplicationFailure(subject: subject, reason: .foundation(cause as NSError))) } ?? .success(())
+            }
             let filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
             let shown: CGRect = joint.frame.intersection(display.frame)
             let size: (width: Int, height: Int) = Framing(content: joint.content, frame: shown, subject: joint.subject).fit(at: CGFloat(filter.pointPixelScale), longestSide: longestSide)
@@ -290,17 +295,25 @@ extension Watch {
             do {
                 try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: nil)
                 _ = try recorder.map(stream.addRecordingOutput)
-                try await stream.startCapture()
             } catch {
                 throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
             }
             let ran: Result<Value, ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> Value in
+                try await withTimeout(bound, expired: expired, cancelled: cancelled) { (started: @escaping @Sendable (Result<Void, ApplicationFailure>) -> Void) in
+                    stream.startCapture { (error: (any Error)?) in started(answer(error)) }
+                }
                 let lapse = deadline.map { _ in Result<StreamOutput.Frame, ApplicationFailure>.failure(expired) }
                 let start: StreamOutput.Frame = try await (merge(output.first.stream, lapse).first { _ in true } ?? .failure(cancelled)).get()
                 return try await body(output, start, (shown, joint.windows))
             }
-            let stopped: Result<Void, any Error> = await withTaskCancellationShield { await Result { () async throws in try await stream.stopCapture() } }
-            let stopping: Result<Void, ApplicationFailure> = stopped.mapError { error in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
+            let stopping: Result<Void, ApplicationFailure> = await withTaskCancellationShield {
+                await Result { () async throws(ApplicationFailure) in
+                    try await withTimeout(bound, expired: expired, cancelled: cancelled) { (stopped: @escaping @Sendable (Result<Void, ApplicationFailure>) -> Void) in
+                        stream.stopCapture { (error: (any Error)?) in stopped(answer(error)) }
+                    }
+                }
+            }
+            output.finish()
             switch (stopping, recorder) {
                 case (.success, .some): break
                 case (.success, .none), (.failure, _): output.outcomes.continuation.yield(stopping)

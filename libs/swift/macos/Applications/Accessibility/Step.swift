@@ -909,13 +909,13 @@ extension Step {
         clipboard: Int,
         host: Host,
         held: inout [Input.Contact: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])],
-        streams: inout [CGWindowID: (opening: Task<Result<StreamOutput, ApplicationFailure>, Never>, call: AsyncStream<Void>.Continuation)],
+        streams: inout [CGWindowID: (output: Result<StreamOutput, ApplicationFailure>, call: AsyncStream<Void>.Continuation)],
         source: CGEventSource,
         using generator: inout some RandomNumberGenerator,
         clock: some Clock<Duration> & Sendable,
     ) async throws(ApplicationFailure) -> Delivery {
         let process: pid_t = watch.instance.process.pid
-        for stream in streams.values { await stream.opening.value[case: \.success]?.disturb() }
+        for stream in streams.values { stream.output[case: \.success]?.disturb() }
         let changes: AsyncStream<Watch.Message> = await watch.messages()
         let hosted = { () -> Set<CGWindowID> in
             let rows: [[String: Any]] = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
@@ -1197,9 +1197,9 @@ extension Step {
             }
         if let pictured, streams[pictured] == nil {
             let (calling, call) = AsyncStream<Void>.makeStream()
-            streams[pictured] = (Task { await watch.frames(of: pictured, during: calling) }, call)
+            streams[pictured] = (await watch.frames(of: pictured, during: calling), call)
         }
-        let opening: Task<Result<StreamOutput, ApplicationFailure>, Never>? = if let pictured { streams[pictured]?.opening } else { nil }
+        let drawing: Result<StreamOutput, ApplicationFailure>? = if let pictured { streams[pictured]?.output } else { nil }
         let values: AsyncStream<Void>? = if case .position = readBack { watch.notices(of: kAXValueChangedNotification) } else { nil }
         var (tried, thrown, previous, delivered): ([Delivery.Attempt], ApplicationFailure?, NSRunningApplication?, Delivery?) = (planned.tried, nil, nil, nil)
         var undelivered: [Route.Kind: ApplicationFailure.Reason] = [:]
@@ -1227,7 +1227,6 @@ extension Step {
                 let numbering: (number: Int64, clickState: Int64) = (
                     pressing?.getIntegerValueField(.mouseEventNumber) ?? base + pressed - 1, pressing?.getIntegerValueField(.mouseEventClickState) ?? 1,
                 )
-                let drawing: Result<StreamOutput, ApplicationFailure>? = await opening?.value
                 let output: StreamOutput? = drawing?[case: \.success]
                 let changing: [CGRect] = pictured.map { (number: CGWindowID) -> [CGRect] in watch.restless(of: number) } ?? []
                 let insertion: CGRect? = if output != nil { await caret() } else { nil }
@@ -1382,7 +1381,7 @@ extension Watch {
     @concurrent
     package nonisolated func act(
         _ steps: [Step],
-        stepping: @Sendable (_ index: Int) -> Void = { _ in },
+        stepping: @escaping @Sendable (_ index: Int) -> Void = { _ in },
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> (
         outcomes: [Result<Step.Delivery, ApplicationFailure>],
@@ -1390,7 +1389,7 @@ extension Watch {
         diagnosis: (usage: Result<ResourceUsage.Interval, Errno>, load: Result<SystemLoad.Interval, ProcessFailure>, faults: [LogEntry])?
     ) {
         try await step {
-            () async throws(ApplicationFailure) -> (
+            [self] () async throws(ApplicationFailure) -> (
                 outcomes: [Result<Step.Delivery, ApplicationFailure>],
                 state: InstanceState,
                 diagnosis: (usage: Result<ResourceUsage.Interval, Errno>, load: Result<SystemLoad.Interval, ProcessFailure>, faults: [LogEntry])?
@@ -1424,7 +1423,7 @@ extension Watch {
             let clipboard: Int = await intern([Pasteboard.locator(of: .general)])[0]
             var outcomes: [Result<Step.Delivery, ApplicationFailure>] = []
             var held: [Input.Contact: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])] = [:]
-            var streams: [CGWindowID: (opening: Task<Result<StreamOutput, ApplicationFailure>, Never>, call: AsyncStream<Void>.Continuation)] = [:]
+            var streams: [CGWindowID: (output: Result<StreamOutput, ApplicationFailure>, call: AsyncStream<Void>.Continuation)] = [:]
             defer { for stream in streams.values { stream.call.finish() } }
             var generator = SystemRandomNumberGenerator()
             let popUps = { () -> [CGWindowID] in
@@ -1446,7 +1445,7 @@ extension Watch {
                 }
                 outcomes.append(
                     outcome.flatMapError { failure in
-                        switch (failure.reason == .unansweredMayHaveRun(step), failure.reason == .system(.noSuchProcess)) {
+                        switch (failure.reason == .unansweredMayHaveRun(step), failure.reason == .system(.noSuchProcess) || failure.reason == .cancelled && process.hasExited) {
                             case (true, _): .success(Step.Delivery(proof: .unanswered))
                             case (_, true): .success(Step.Delivery(proof: .exit))
                             case (false, false): .failure(failure)

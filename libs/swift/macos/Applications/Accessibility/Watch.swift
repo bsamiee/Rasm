@@ -1159,9 +1159,21 @@ package actor Watch {
 
     func pressing(_ ref: Int?) { pressed = ref.flatMap { (ref: Int) -> (control: Control, container: Int)? in controls[ref] } }
 
-    nonisolated func step<Value: Sendable, Failure: Error>(_ body: () async throws(Failure) -> Value) async throws(Failure) -> Value {
+    nonisolated func step<Value: Sendable, Failure: Error>(_ body: @escaping @Sendable () async throws(Failure) -> Value) async throws(Failure) -> Value {
         await hold(1)
-        let outcome: Result<Value, Failure> = await Watch.$stepping.withValue(true) { await Result { () async throws(Failure) -> Value in try await body() } }
+        let session: AsyncStream<Message> = await messages()
+        let outcome: Result<Value, Failure> = await withTaskGroup(of: Result<Value, Failure>?.self) { (group: inout TaskGroup<Result<Value, Failure>?>) -> Result<Value, Failure> in
+            group.addTask { await Watch.$stepping.withValue(true) { await Result(catching: body) } }
+            group.addTask {
+                _ = await session.first { (message: Message) -> Bool in message[case: \.event]?.change.is(\.exited) == true }
+                return nil
+            }
+            for await finished in group {
+                group.cancelAll()
+                if let finished { return finished }
+            }
+            preconditionFailure("Step group ended without the step's outcome")
+        }
         await hold(-1)
         return try outcome.get()
     }
