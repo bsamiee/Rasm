@@ -322,9 +322,6 @@
         },
         {
             "path": "./plugins/claude/sazandeh"
-        },
-        {
-            "path": "./plugins/claude/naqib"
         }
     ]
 }

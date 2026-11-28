@@ -86,21 +86,6 @@
             "category": "Coding"
         },
         {
-            "name": "naqib",
-            "source": {
-                "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/naqib%400.1.0/naqib.zip",
-                "sha256": "1479da0ac4962d8a261d38e2962f9abf31333bface3542f46cf89e5e22706ce1"
-            },
-            "description": "Claude Code hooks that gather the owner's agent work in the terminal, with the way back to each, and open every agent's tmux run as a muted read-only pane in Zellij session agents",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "policy": {
-                "installation": "NOT_AVAILABLE"
-            }
-        },
-        {
             "name": "orchestration",
             "source": "./plugins/codex/orchestration",
             "description": "Codex threads, parallel agents, and reviews across models",
