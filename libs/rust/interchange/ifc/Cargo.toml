@@ -48,6 +48,7 @@ petgraph             = { workspace = true }
 parry3d-f64          = { workspace = true, optional = true }
 pcd-rs               = { workspace = true, optional = true }
 color                = { workspace = true, optional = true }
+rasm-drawing         = { workspace = true }
 rasm-bcf             = { workspace = true, optional = true }
 
 # --- [FEATURES] -------------------------------------------------------------------------

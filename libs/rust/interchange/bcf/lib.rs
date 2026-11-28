@@ -550,6 +550,6 @@ mod visualization;
 pub use markup::{BimSnippet, Comment, DocumentReference, File, Remark, Resource, Target, Topic, Viewpoint, newest};
 pub use uuid::Uuid;
 pub use visualization::{
-    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, PositiveLength, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization,
-    presentation, visibility,
+    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization, presentation,
+    visibility,
 };

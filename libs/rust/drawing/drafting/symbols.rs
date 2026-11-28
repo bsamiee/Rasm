@@ -11,7 +11,7 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
     Alignment, Anchor, Baseline, Color, Content, Dash, Dashes, DashesError, Element, FontStyle, FontWeight, FontWeightError, Linetype, LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen,
-    Placement, Region, Side, Target, Text, Unit, Width, WidthError, regions, strokes,
+    Placement, PositiveLength, Region, Side, Target, Text, Width, WidthError, regions, strokes,
 };
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use typed_floats::{InvalidNumber, tf32};
@@ -61,7 +61,7 @@ pub struct Definition {
 }
 
 impl Definition {
-    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, unit: Unit, tolerance: StrictlyPositiveFinite) -> Result<Self, NEVec<DraftingError>> {
+    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, unit: PositiveLength, tolerance: StrictlyPositiveFinite) -> Result<Self, NEVec<DraftingError>> {
         fn lowered(group: &Group, basis: Affine, tolerance: StrictlyPositiveFinite, typesetter: &mut Typesetter) -> Validated<Lowered, DraftingError> {
             let basis = basis * affine(group.transform());
             let shaped = |path: &usvg::Path| -> Validated<Vec<Element>, DraftingError> {

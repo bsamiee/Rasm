@@ -12,7 +12,7 @@ use kurbo::{Affine, Point, Rect, Shape, Size};
 use linesweeper::BinaryOp;
 use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_drawing::pages::{self, Destination, Link, Page};
-use rasm_drawing::{Content, Element, Opacity, Placement, Region, Side, Unit, Visibility, cleanup, regions};
+use rasm_drawing::{Content, Element, Opacity, Placement, PositiveLength, Region, Side, Visibility, cleanup, regions};
 use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::si::f64::LinearNumberDensity;
 use uom::si::ratio::ratio;
@@ -141,7 +141,7 @@ pub struct Reference {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn raster(bytes: Arc<[u8]>, fit: Fit, unit: Unit, opacity: Opacity) -> Result<Element, DraftingError> {
+pub fn raster(bytes: Arc<[u8]>, fit: Fit, unit: PositiveLength, opacity: Opacity) -> Result<Element, DraftingError> {
     let size @ ImageSize { width, height } = blob_size(&bytes)?;
     let count = |pixels: usize| u32::try_from(pixels).ok().and_then(NonZero::new).map(|counted| f64::from(counted.get()));
     let (across, down) = count(width).zip(count(height)).ok_or(DraftingError::Raster(size))?;

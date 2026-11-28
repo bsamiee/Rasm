@@ -7,13 +7,14 @@ use nalgebra::{ComplexField as _, Isometry3, Point2, Point3, Rotation2, Translat
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 #[cfg(feature = "geometry")]
 use parry3d_f64::{math::Vector, shape::Polyline};
+use rasm_drawing::PositiveLength;
 use serde::{Deserialize, Serialize};
 use uom::si::f64::Length;
 use uom::si::length::meter;
 use validated::Validated;
 
 use crate::schemas::{Attribute, Station, Target, attribute};
-use crate::{Composed, Fault, IfcError, Model, Path, PositiveLength};
+use crate::{Composed, Fault, IfcError, Model, Path};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

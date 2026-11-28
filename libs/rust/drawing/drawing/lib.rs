@@ -73,8 +73,8 @@ pub enum Dash {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(predicate = |unit: &Length| unit.is_normal() && unit.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
-pub struct Unit(Length);
+#[nutype::nutype(validate(predicate = |length: &Length| length.is_normal() && length.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
+pub struct PositiveLength(Length);
 
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Width(f64);

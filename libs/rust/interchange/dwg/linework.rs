@@ -21,8 +21,8 @@ use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Dash, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side, Target, Visibility,
-    Width, WidthError, cleanup, pages,
+    Alignment, Dash, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, PositiveLength, Region, Side,
+    Target, Visibility, Width, WidthError, cleanup, pages,
 };
 use typed_floats::InvalidNumber;
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
@@ -54,7 +54,7 @@ pub struct Authoring {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Context<'source> {
     pub(crate) frame: Affine,
-    pub(crate) unit: rasm_drawing::Unit,
+    pub(crate) unit: PositiveLength,
     pub(crate) table: Option<&'source PlotStyleTable>,
     pub(crate) viewport: Option<&'source Viewport>,
     pub(crate) drafting: Option<f64>,
@@ -68,7 +68,7 @@ struct Expansion {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<(rasm_drawing::Unit, Vec<pages::Layer>), NEVec<CadError>> {
+pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<(PositiveLength, Vec<pages::Layer>), NEVec<CadError>> {
     let unit = insertion_unit(document, projection)?;
     let model = document.header.model_space_block_handle;
     let sheet = document.objects.values().find_map(|object| {
@@ -91,14 +91,14 @@ pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<(ra
     projected(document, "*Model_Space", &context, projection).map(|layers| (unit, layers))
 }
 
-pub fn drawing(layers: Vec<pages::Layer>, unit: rasm_drawing::Unit, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
+pub fn drawing(layers: Vec<pages::Layer>, unit: PositiveLength, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
     let mut document = authored(authoring);
     written(&mut document, "Model", layers, unit, authoring).map(|_| document)
 }
 
-pub(crate) fn insertion_unit(document: &CadDocument, projection: &Projection) -> Result<rasm_drawing::Unit, NEVec<CadError>> {
+pub(crate) fn insertion_unit(document: &CadDocument, projection: &Projection) -> Result<PositiveLength, NEVec<CadError>> {
     let code = document.header.insertion_units;
-    projection.unit.or_else(|| Unit::from_repr(code)).and_then(|unit| rasm_drawing::Unit::try_new(Length::from(unit)).ok()).ok_or(CadError::Unit { code }).map_err(NEVec::new)
+    projection.unit.or_else(|| Unit::from_repr(code)).and_then(|unit| PositiveLength::try_new(Length::from(unit)).ok()).ok_or(CadError::Unit { code }).map_err(NEVec::new)
 }
 
 #[must_use]
@@ -538,7 +538,7 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
     }
 }
 
-pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages::Layer>, unit: rasm_drawing::Unit, authoring: &Authoring) -> Result<Vec<Handle>, NEVec<CadError>> {
+pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages::Layer>, unit: PositiveLength, authoring: &Authoring) -> Result<Vec<Handle>, NEVec<CadError>> {
     let frame = Affine::scale((*unit / Length::from(authoring.unit)).get::<ratio>());
     let space = Arc::<str>::from(space);
     layers
@@ -581,7 +581,7 @@ fn entities(
     document: &mut CadDocument,
     element: Element,
     layer: &str,
-    (frame, unit): (Affine, rasm_drawing::Unit),
+    (frame, unit): (Affine, PositiveLength),
     tolerance: StrictlyPositiveFinite,
     subject: &Subject,
 ) -> Result<Vec<EntityType>, NEVec<CadError>> {

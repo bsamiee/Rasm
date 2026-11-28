@@ -19,7 +19,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::base64::Base64;
 use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDisplay, serde_as};
 use uom::si;
-use uom::si::f64::Length;
 use url::Url;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -193,17 +192,6 @@ pub struct ObjectRestrictions {
 }
 
 // --- [QUANTITIES]
-
-#[nutype::nutype(
-    validate(
-        with = |length: &Length| -> Result<(), IfcError> {
-            (length.is_normal() && length.is_sign_positive()).ok_or(IfcError::Constrained(Constraint::Length(length.get::<si::length::meter>())))
-        },
-        error = IfcError
-    ),
-    derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref)
-)]
-pub struct PositiveLength(Length);
 
 macro_rules! quantities {
     ($($kind:ident($quantity:ident, $module:ident::$unit:ident, $name:literal $(, $alias:literal)?)),+ $(,)?) => {
@@ -481,8 +469,6 @@ pub enum Fault {
 pub enum Constraint {
     #[display("node name {_0} is empty or holds a slash")]
     Name(Arc<str>),
-    #[display("length {_0} m is not positive")]
-    Length(f64),
     #[display("fraction {_0} lies outside 0 to 1")]
     Fraction(f32),
 }

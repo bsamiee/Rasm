@@ -11,7 +11,7 @@ use kurbo::{Affine, BezPath, Circle, Line, ParamCurve as _, ParamCurveArclen as 
 use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use parlance::{FontFamily, FontFeature, ParseFontFamilyError};
-use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Unit, Width, regions, transform};
+use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, PositiveLength, Region, Width, regions, transform};
 use skrifa::ScaleError;
 use typed_floats::tf64::StrictlyPositiveFinite;
 use typed_floats::{InvalidNumber, tf32};
@@ -137,7 +137,7 @@ pub struct Style {
     pub dimension: dimensions::Style,
     pub leader: leaders::Style,
     pub arrow: Terminator,
-    pub unit: Unit,
+    pub unit: PositiveLength,
     pub tolerance: StrictlyPositiveFinite,
 }
 
@@ -421,7 +421,7 @@ fn edges(sizes: impl IntoIterator<Item = f64>) -> impl Iterator<Item = f64> {
     }))
 }
 
-fn units(length: Length, unit: Unit) -> f64 { (length / *unit).get::<ratio>() }
+fn units(length: Length, unit: PositiveLength) -> f64 { (length / *unit).get::<ratio>() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

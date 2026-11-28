@@ -12,7 +12,7 @@ use kurbo::{Affine, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_drawing::pages::{self, Page};
-use rasm_drawing::{Placement, Region};
+use rasm_drawing::{Placement, PositiveLength, Region};
 use strum::VariantArray as _;
 use uom::si::f64::Length;
 use uom::si::length::millimeter;
@@ -60,7 +60,7 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
             PlotPaperUnits::Millimeters => Some(Unit::Millimeters),
             PlotPaperUnits::Pixels => None,
         }
-        .and_then(|unit| rasm_drawing::Unit::try_new(Length::from(unit)).ok())
+        .and_then(|unit| PositiveLength::try_new(Length::from(unit)).ok())
         .ok_or_else(|| NEVec::new(CadError::Refused { subject: Subject::Record { handle: layout.handle, kind: "LAYOUT" }, reason: Refusal::Units }))?;
         let factor = (*model / *unit).get::<ratio>();
         let size = if layout.plot_rotation.rem_euclid(2) == 1 { Size::new(layout.paper_height, layout.paper_width) } else { Size::new(layout.paper_width, layout.paper_height) };
@@ -250,7 +250,7 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
-    let mut laid = |index: usize, key: &Arc<str>, size: Size, unit: rasm_drawing::Unit| -> Result<(), CadError> {
+    let mut laid = |index: usize, key: &Arc<str>, size: Size, unit: PositiveLength| -> Result<(), CadError> {
         let (factor, millimeters) = ((insertion / *unit).get::<ratio>(), (*unit).get::<millimeter>());
         let (paper, dictionary) = (document.header.paper_space_block_handle, document.header.acad_layout_dict_handle);
         let first = (index == 0).then(|| document.objects.values()).into_iter().flatten().find_map(|object| {
@@ -284,9 +284,9 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
     };
     sheets.iter().enumerate().map(|(index, (key, size, unit, _, _))| laid(index, key, *size, *unit)).collect::<Validated<(), _>>().ok()?;
     let (sheets, distinct) = {
-        let mut distinct = Vec::<(pages::Layer, rasm_drawing::Unit)>::new();
+        let mut distinct = Vec::<(pages::Layer, PositiveLength)>::new();
         let mut candidates = HashMap::<_, Vec<usize>>::new();
-        let mut indexed = |layer: (pages::Layer, rasm_drawing::Unit)| {
+        let mut indexed = |layer: (pages::Layer, PositiveLength)| {
             let positions = candidates.entry((Arc::clone(&layer.0.name), layer.0.print, layer.0.view)).or_default();
             positions.iter().copied().find(|&position| distinct[position] == layer).unwrap_or_else(|| {
                 let position = distinct.len();

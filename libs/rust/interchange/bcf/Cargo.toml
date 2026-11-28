@@ -42,6 +42,7 @@ nalgebra             = { workspace = true }
 uom                  = { workspace = true }
 color                = { workspace = true }
 imagesize            = { workspace = true }
+rasm-drawing         = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

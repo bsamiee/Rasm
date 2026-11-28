@@ -7,7 +7,7 @@ use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as
 use stacksafe::StackSafe;
 use validated::Validated;
 
-use crate::{Element, LineworkError, Placement, Region, Side, Unit, Visibility};
+use crate::{Element, LineworkError, Placement, PositiveLength, Region, Side, Visibility};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ pub struct Link {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
     pub size: Size,
-    pub unit: Unit,
+    pub unit: PositiveLength,
     pub viewports: Vec<Viewport> = Vec::new(),
     pub layers: Vec<Layer> = Vec::new(),
     pub links: Vec<Link> = Vec::new(),

@@ -6,6 +6,7 @@ use data_encoding::{HEXUPPER, HEXUPPER_PERMISSIVE};
 use itertools::{Either, EitherOrBoth};
 use nalgebra::{Isometry3, Point3, Translation3, Unit, UnitQuaternion, Vector3};
 use nonempty_collections::NEVec;
+use rasm_drawing::{PositiveLength, PositiveLengthError};
 use strum::VariantArray as _;
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Length};
@@ -66,17 +67,6 @@ pub enum Projection {
     Orthogonal(PositiveLength),
     Perspective(FieldOfView),
 }
-
-#[nutype::nutype(
-    validate(
-        with = |length: &Length| -> Result<(), BcfError> {
-            (length.is_normal() && length.is_sign_positive()).ok_or(BcfError::Constrained(Constraint::Length(length.get::<meter>())))
-        },
-        error = BcfError
-    ),
-    derive(Debug, Clone, Copy, PartialEq, PartialOrd, AsRef, Deref, TryFrom, Into)
-)]
-pub struct PositiveLength(Length);
 
 #[nutype::nutype(
     validate(
@@ -200,7 +190,9 @@ impl Simple for FieldOfView {
 }
 
 impl Simple for PositiveLength {
-    fn decode(text: &str) -> Result<Self, BcfError> { f64::decode(text).and_then(|length| Self::try_new(Length::new::<meter>(length))) }
+    fn decode(text: &str) -> Result<Self, BcfError> {
+        f64::decode(text).and_then(|length| Self::try_new(Length::new::<meter>(length)).map_err(|PositiveLengthError::PredicateViolated| BcfError::Constrained(Constraint::Length(length))))
+    }
 
     fn encode(&self) -> String { self.get::<meter>().encode() }
 }
