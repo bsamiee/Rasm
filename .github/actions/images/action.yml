@@ -1,10 +1,7 @@
 name: Images
-description: Names the container images jobs run in, the Playwright image of the pnpm catalog and the Unreal Engine releases tracked .uproject files associate
+description: Names the Unreal Engine releases tracked .uproject files associate, each the tag of one Epic dev-slim image a job runs in
 
 outputs:
-    playwright:
-        description: Playwright image Deploy publishes for the @playwright/test row of the pnpm catalog
-        value: ${{ steps.listed.outputs.playwright }}
     engines:
         description: JSON array of engine releases, each one Epic's dev-slim image tags
         value: ${{ steps.listed.outputs.engines }}
@@ -15,6 +12,5 @@ runs:
         - id: listed
           shell: bash
           run: |-
-              version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
               engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output 'map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique')"
-              printf "%s\n" "playwright=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" "engines=${engines}" >> "${GITHUB_OUTPUT}"
+              printf "engines=%s\n" "${engines}" >> "${GITHUB_OUTPUT}"

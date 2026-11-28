@@ -1,11 +1,16 @@
 name: Deploy
 
 on:
-    workflow_call: {}
+    push:
+        branches: [main]
     repository_dispatch:
         types: [deploy]
     schedule:
         - cron: '0 8 * * *'
+
+concurrency:
+    group: ${{ github.workflow }}
+    queue: max
 
 defaults:
     run:
@@ -17,16 +22,28 @@ jobs:
         runs-on: ubuntu-26.04
         timeout-minutes: 120
         environment: deploy
-        concurrency:
-            group: ${{ github.event_name == 'push' && 'deploy' || 'main' }}
-            queue: max
         permissions:
             contents: read
+            actions: read
             id-token: write
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
-                  ref: ${{ github.event_name == 'push' && github.run_attempt == '1' && github.sha || 'main' }}
+                  ref: ${{ case(github.event_name == 'push' && github.run_attempt == '1', github.sha, 'main') }}
+                  fetch-depth: 0
+                  filter: blob:none
+            - id: root
+              if: &pushed ${{ github.event_name == 'push' }}
+              run: |-
+                  root="$(git rev-list --max-parents=0 HEAD)"
+                  printf "sha=%s\n" "${root}" >> "${GITHUB_OUTPUT}"
+            - if: *pushed
+              uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
+              with:
+                  fallback-sha: ${{ steps.root.outputs.sha }}
+                  workflow-id: deploy.yml
+                  lookup-strategy: per-commit
+                  max-commits: 150
             - id: graph
               uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
@@ -37,23 +54,36 @@ jobs:
                       !.cache/nx/workspace-data/xcode-packages
                   key: nx-${{ runner.os }}-
             - uses: $/.github/actions/tools
-            - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+              with:
+                  mise-env: ci-linux
+            - id: affected
+              if: *pushed
+              run: |-
+                  projects="$(nx show projects --affected --withTarget=deploy--pulumi --exclude='*,!@rasm/infra' --json)"
+                  infra="$(jq 'length > 0' <<< "${projects}")"
+                  printf "infra=%s\n" "${infra}" >> "${GITHUB_OUTPUT}"
+            - if: &applying ${{ steps.affected.outputs.infra != 'false' }}
+              uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
               with:
                   workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
                   service_account: ${{ vars.GOOGLE_SERVICE_ACCOUNT }}
-            - uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+            - if: *applying
+              uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
               with:
                   oauth-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
                   audience: ${{ vars.TAILSCALE_AUDIENCE }}
                   tags: tag:deploy
-            - run: mkdir -p ~/.ssh && printf "%s\n" "Host *" "    StrictHostKeyChecking accept-new" >> ~/.ssh/config
+            - if: *applying
+              run: mkdir -p ~/.ssh && printf "%s\n" "Host *" "    StrictHostKeyChecking accept-new" >> ~/.ssh/config
             - id: bootstrap
+              if: *applying
               run: MISE_ENV="${MISE_ENV},remote" mise bootstrap remote --all --only accounts,packages,files,services --yes
             - if: ${{ !cancelled() && steps.bootstrap.outcome != 'skipped' }}
               run: nx deploy @rasm/infra
               env: &doppler
                   DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
-            - run: nx dry-run @rasm/infra --configuration=converged
+            - if: *applying
+              run: nx dry-run @rasm/infra --configuration=converged
               env: *doppler
             - if: ${{ !cancelled() && !endsWith(steps.graph.outputs.cache-matched-key, hashFiles('.cache/nx/workspace-data/*.hash')) }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

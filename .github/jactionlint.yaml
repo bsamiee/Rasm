@@ -6,7 +6,7 @@ generated-files: report
 assume-default-permissions: restricted
 
 self-hosted-runner:
-    labels: [self-hosted, host, container, graph, xcode-27, xcode-27-xlarge, windows-2025, ubuntu-26.04]
+    labels: [self-hosted, unreal, ubuntu-slim, ubuntu-26.04, xcode-27, windows-2025]
     strict-labels: true
     providers: []
 

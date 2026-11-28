@@ -1,24 +1,22 @@
 name: Tools
-description: Installs the mise tools and project dependencies a job needs, restoring cached analyzers on GitHub-hosted runners, and exports mise env
+description: Installs the mise tools and project dependencies of one mise environment, restoring cached analyzers on GitHub-hosted runners, and exports mise env
+
+inputs:
+    mise-env:
+        description: Mise environment the job loads, ci-linux on GitHub-hosted Linux runners and ci on every other runner
+        required: true
 
 runs:
     using: composite
     steps:
         - shell: bash
+          env:
+              TOOLS: ${{ case(job.container.id != '', format('{0}/mise', runner.tool_cache), runner.os == 'Windows', 'C:/mise', '') }}
           run: |-
-              git clean -ffd
-              printf "%s\n" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
-        - if: ${{ job.container.id != '' }}
-          shell: bash
-          run: |-
-              tools="${RUNNER_TOOL_CACHE}/mise"
-              printf "%s\n" "MISE_DATA_DIR=${tools}/data" "MISE_CACHE_DIR=${tools}/cache" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" >> "${GITHUB_ENV}"
-        - if: ${{ runner.environment == 'github-hosted' }}
-          shell: bash
-          run: |-
-              tools="${{ runner.os == 'Windows' && 'C:/mise' || '${HOME}/.local/share/mise' }}"
-              printf "%s\n" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" >> "${GITHUB_ENV}"
-        - if: ${{ runner.os == 'macOS' && runner.environment == 'github-hosted' }}
+              [[ -z "${TOOLS}" ]] || printf "%s\n" "MISE_DATA_DIR=${TOOLS}" >> "${GITHUB_ENV}"
+              tools="${TOOLS:-${HOME}/.local/share/mise}"
+              printf "%s\n" "TMPDIR=${RUNNER_TEMP}" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" >> "${GITHUB_ENV}"
+        - if: ${{ runner.os == 'macOS' }}
           uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
               path: |-
@@ -37,11 +35,10 @@ runs:
               restore-keys: msbuild-analyzer-${{ runner.os }}-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
-              mise_dir: ${{ runner.os == 'Windows' && 'C:/mise' || '' }}
-              mise_env: ${{ (runner.environment == 'github-hosted' || job.container.id != '' || endsWith(runner.name, '-graph')) && 'ci' || '' }}
+              mise_env: ${{ inputs.mise-env }}
               auto_update: true
               bootstrap: true
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}
               cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', '.config/mise.ci.toml', 'rust-toolchain.toml') }}"
+              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', format('.config/mise.{0}.toml', inputs.mise-env), 'rust-toolchain.toml') }}"

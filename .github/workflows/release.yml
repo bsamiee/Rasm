@@ -41,10 +41,10 @@ jobs:
         outputs:
             commit: ${{ steps.released.outputs.commit }}
             projects: ${{ steps.released.outputs.projects }}
+            publishers: ${{ steps.released.outputs.publishers }}
             deliver: ${{ steps.released.outputs.deliver }}
             browser: ${{ steps.released.outputs.browser }}
             unreal: ${{ steps.released.outputs.unreal }}
-            image: ${{ steps.images.outputs.playwright }}
             engines: ${{ steps.images.outputs.engines }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,6 +56,8 @@ jobs:
                   xcode-version: latest-stable
             - &tools
               uses: $/.github/actions/tools
+              with:
+                  mise-env: ci
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
@@ -76,7 +78,8 @@ jobs:
                       reduce ($tagged[] | select($attach[.] or IN("host:unreal"; $nodes[.].data.tags[]?))) as $project ({projects: $tagged, deliver: [], browser: [], unreal: []};
                           [$nodes[$project].data.tags[]?, ([$attach[$project].id // empty] | reach[] | $nodes[$tasks[.].target.project].data.tags[]?)] as $reached
                           | .[if IN("host:unreal"; $reached[]) then "unreal" elif IN("host:browser"; $reached[]) then "browser" else "deliver" end] += [$project])
-                      | map_values(join(",")) + {commit: $commit} | to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_OUTPUT}"
+                      | map_values(join(",")) + {commit: $commit, publishers: ([$tagged[] | $nodes[.].data.targets["nx-release-publish"].metadata.technologies[]?] | unique | tojson)}
+                      | to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_OUTPUT}"
             - id: images
               uses: $/.github/actions/images
 
@@ -104,7 +107,6 @@ jobs:
               with:
                   ref: ${{ needs.version.outputs.commit }}
                   fetch-depth: 0
-                  clean: false
             - *xcode
             - *tools
             - id: development
@@ -135,14 +137,19 @@ jobs:
                   access_token_scopes: https://www.googleapis.com/auth/chromewebstore
                   create_credentials_file: false
                   export_environment_variables: false
+            - id: nuget
+              if: ${{ inputs.publish && contains(fromJSON(needs.version.outputs.publishers), 'dotnet') }}
+              uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+              with:
+                  user: ${{ github.repository_owner }}
+            - id: crates
+              if: ${{ inputs.publish && contains(fromJSON(needs.version.outputs.publishers), 'rust') }}
+              uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
             - if: *publishing
               run: nx release publish
               env:
-                  PNPM_CONFIG__AUTH: '{"https://registry.npmjs.org":{"@":{"authToken":"${NODE_AUTH_TOKEN}"}}}'
-                  NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
-                  UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
-                  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-                  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+                  NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+                  CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
                   YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
                   BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
                   CHROME_WEB_STORE_TOKEN: ${{ steps.google.outputs.access_token }}
@@ -156,22 +163,15 @@ jobs:
         name: Browser
         needs: version
         if: ${{ needs.version.outputs.browser != '' }}
-        runs-on: [self-hosted, container]
+        runs-on: ubuntu-26.04
         timeout-minutes: 120
         permissions:
             contents: write
-            packages: read
-        container:
-            image: ${{ needs.version.outputs.image }}
-            credentials:
-                username: ${{ github.actor }}
-                password: ${{ github.token }}
-            options: --init --ipc=host
-        env:
-            NX_PARALLEL: 50%
         steps:
             - *released
-            - *tools
+            - uses: $/.github/actions/tools
+              with:
+                  mise-env: ci-linux
             - *attach
 
     unreal:
@@ -182,7 +182,7 @@ jobs:
             fail-fast: false
             matrix:
                 engine: ${{ fromJSON(needs.version.outputs.engines) }}
-        runs-on: [self-hosted, container]
+        runs-on: [self-hosted, unreal]
         timeout-minutes: 120
         environment: release
         permissions:
@@ -192,9 +192,8 @@ jobs:
             credentials:
                 username: ${{ github.repository_owner }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
-            options: --memory=10g
+            options: --memory=20g
         env:
-            NX_PARALLEL: 50%
             HOME: /home/ue4
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: 'false'
         steps:

@@ -8,67 +8,23 @@ on:
 concurrency:
     group: ${{ github.workflow }}
 
+permissions:
+    contents: read
+
 defaults:
     run:
         shell: bash
 
 jobs:
-    host:
-        name: Host runner
-        runs-on: [self-hosted, host]
-        timeout-minutes: 60
-        outputs:
-            image: ${{ steps.images.outputs.playwright }}
+    advisories:
+        name: Cargo advisories
+        runs-on: ubuntu-26.04
+        timeout-minutes: 30
         steps:
-            - &checkout
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: $/.github/actions/tools
               with:
-                  fetch-depth: 0
-                  clean: false
-            - &leftovers
-              run: |-
-                  git ls-files -z --others --ignored --exclude-standard --directory | while IFS= read -r -d '' path; do
-                      if [[ "${path}" == */ ]] && ! git check-ignore -q --no-index "${path%/}" && git log -1 --format=%h -- "${path}" | read -r; then
-                          printf "%s\0" "${path}"
-                      fi
-                  done | xargs -0 -r git clean -ffdX --
-            - run: |-
-                  sockets="$(find /tmp "${RUNNER_TEMP}" -maxdepth 1 -type s -user "${UID}" | sort)"
-                  bound="$(ss -Hxa | awk '{print $5}' | sort -u)"
-                  comm -23 <(printf "%s\n" "${sockets}") <(printf "%s\n" "${bound}") | xargs -r -d '\n' rm -f --
-            - &tools
-              uses: $/.github/actions/tools
-            - &prune
-              run: nx run-many --targets=clean--pnpm,clean--uv,clean--mise --projects=rasm
-            - run: docker image prune --force
+                  mise-env: ci-linux
             - run: nx run rasm:check--cargo-deny-advisories
               env:
                   NX_SKIP_NX_CACHE: 'true'
-            - id: images
-              uses: $/.github/actions/images
-
-    container:
-        name: Container runner
-        needs: host
-        runs-on: [self-hosted, container]
-        timeout-minutes: 60
-        container:
-            image: ${{ needs.host.outputs.image }}
-            credentials:
-                username: ${{ github.actor }}
-                password: ${{ github.token }}
-        steps:
-            - *checkout
-            - *leftovers
-            - *tools
-            - *prune
-
-    graph:
-        name: Graph runner
-        runs-on: [self-hosted, graph]
-        timeout-minutes: 60
-        steps:
-            - *checkout
-            - *leftovers
-            - *tools
-            - run: nx run-many --targets=clean--pnpm,clean--uv --projects=rasm
