@@ -12,17 +12,17 @@ Rebuilds replace a file's approach, never its spelling: each job written by hand
 
 Agents loading the skill are the adversary of every line they read, their own earlier turns included, and run every step themselves from base to commit. Modes decide the base a pass reads against:
 
-| [INDEX] | [MODE]          | [BASE]                                                    | [EDITS]                                              |
-| :-----: | :-------------- | :-------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | Build           | Tree at session start, plan naming consumers              | New files, each consumer the new capability replaces |
-|  [02]   | Behind a writer | Base a brief names, else commit before the file was added | Added files whole, modified hunks and lines they hit |
-|  [03]   | File or folder  | `HEAD` with uncommitted edits                             | Each file whole, owner files before their consumers  |
+| [INDEX] | [MODE]          | [BASE]                                                   | [EDITS]                                              |
+| :-----: | :-------------- | :------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | Build           | Tree at session start, plan naming consumers             | New files, each consumer the new capability replaces |
+|  [02]   | Behind a writer | Base a brief names, else parent of writer's first commit | Added files whole, modified hunks and lines they hit |
+|  [03]   | File or folder  | `HEAD` with uncommitted edits                            | Each file whole, owner files before their consumers  |
 
 - Build -> each job a new file does maps to its owner before the file is written, and the measure is hand code removed across the tree
-- Behind a writer -> `git diff --name-status <base> -- <paths>` splits added from modified, a file with no brief taking the commit before `git log --follow --diff-filter=A` added it
-- Added files -> wrong whole, rebuilt from purpose, behaviors, and consumers, never from their own shape
+- Behind a writer -> `git diff --name-status <base> -- <paths>` splits added from modified, and with no brief `git log --follow -- <path>` names the writer's first commit per file
+- Added files -> wrong whole, rebuilt from purpose, consumers, and behaviors callers receive, never from their own shape or mechanism
 - Modified files -> read whole, each hunk and each line it reaches rebuilt against base
-- Folder -> files in turn, largest hand copy first
+- File sets -> each file read before the first edit, a form repeated across files rebuilt once at the module owning its concept, then files in turn
 - Shared wires -> a wire read in more than one language changes on every side in one change
 
 ## [01]-[BASE]
@@ -30,22 +30,24 @@ Agents loading the skill are the adversary of every line they read, their own ea
 Base facts come before the first read of code:
 1. Skills: each language's coding skill, package skills its manifest imports, `writing:names`, and the host skill of the runtime its consumers run it in
 2. Memory: index lines naming the work (rebuild, schema, naming, nesting, a package, a host) open their bodies, each banned form joining the read
-3. Tree: `git status --short` and `git log --follow --stat -- <path>` per file, uncommitted edits belonging to the base
+3. Tree: `git status --short`, uncommitted edits belonging to the base
 4. Decisions: a brief's or memory's recorded decision binds, and a pass reverses one only with a new fact it names
 
 ## [02]-[READING]
 
 Reading precedes the first edit, as a change made from memory of an API, a summary, or an outline restates what an owner holds and misses a consumer's shape:
-1. Files: each file of the unit from line 1 to its end, sibling modules it imports included, `ast-grep outline <path> --view expanded` choosing files alone
-2. Consumers: every reader of each member a pass changes, found by `ast-grep run` and `rg -F`, read to its use
-3. Jobs: each block doing a job by hand (parse, encode, decode, retry, schedule, diff, glob, spawn, format, lay out), named by verb and object
-4. Owners: each job's candidates listed whole per `references/owners.md`, and members a kept decision rests on read at their installed release
-5. History: `git log -S '<literal>'` for a guard, flag, or form whose reason code and readers omit, and each `fix:` subject of the file's history
+1. Files: each file of the unit from line 1 to its end, sibling modules it imports included, an outline choosing files alone
+2. Package: `ast-grep outline <package> --view expanded` over the unit's package, as an owner sits in a sibling module the file never imports
+3. Consumers: every reader of each member a pass changes, found by `ast-grep run` and `rg -F`, read to its use
+4. Jobs: each block doing a job by hand (parse, encode, retry, schedule, diff, spawn, format, intercept, correlate, connect), named by verb and object
+5. Owners: step 2 members first, then candidates listed whole per `references/owners.md`, members a kept decision rests on read at installed release
+6. History: `git log --follow --format='%h %s' -- <path>` with each `fix:` subject, and `git log -S '<literal>'` for a form code and readers leave unexplained
 
 Reading ends in statements editing starts from:
 - Purpose: what each file is for, who calls it, how it runs, each input class it serves, and each declaration's fact
-- Behaviors: each case, refusal, fix, output, error, and listed row of every file the pass edits, deletes, or replaces, with its line
-- Hand copies: each job of step 3 with its owner member, ranked by lines that member removes
+- Behaviors: each case, refusal, fix, output, error, and listed row a caller, user, or host receives from an edited or replaced file, with its line
+- Mechanism: each lock, shared state, correlation, and failure a hand copy needs only to run, going with that copy and named in the commit body
+- Hand copies: each job of step 4 with its owner member, ranked by lines that member removes
 
 Questions take one route each:
 - Instructions -> followed for the problem they name over their wording
@@ -59,7 +61,7 @@ Large removals come from deleting hand copies of what an owner performs, and sma
 1. Owners: each hand copy replaced by its owner member, largest first, as one member call deletes declarations later steps rebuild
 2. Removal: each declaration meeting its `[05]` criterion deleted, every consumer rebuilt, a file whose deletions reshape it written whole
 3. Findings: each defect a removed guard or fold reveals fixed at its site in the same change, wherever the site sits
-4. Logic: repetition and nesting rebuilt by `[06]`
+4. Logic: each member the pass writes or keeps taken through `[06]` steps 2 to 4 at any depth, members past the limit or ragged through all five
 5. Names: each name in its field's term, verbs for functions, nouns for values
 
 Each edit takes its rebuild over its bad form:
@@ -77,8 +79,12 @@ Each edit takes its rebuild over its bad form:
 |  [09]   | Helper, member, constant, or export added for defect fix or new case | Fix or case inside existing member holding it                 |
 |  [10]   | Shared member changed for every consumer, consumers named after      | Every consumer read and rebuilt in the diff, or change scoped |
 |  [11]   | Probe file or lowered severity in a tracked folder                   | Probe in scratch, severity left at its row                    |
+|  [12]   | Hook patching a host call the code itself made with short input      | Call made once with the full input its member takes           |
+|  [13]   | Lock, shared reference, or text match tying a call to its own hook   | Result read from the call, the state deleted                  |
+|  [14]   | Private symbol or key bound where read (`@_silgen_name`, literal)    | One declaration in the module stating private host API        |
+|  [15]   | Connection, watch, or handle opened beside a sibling owning one      | Sibling's member extended and called                          |
 
-Files are read again right before each edit, and no line of the tree is fenced from a fix.
+Files are read again right before each edit.
 
 ## [04]-[OWNERS]
 
@@ -137,7 +143,7 @@ Host facts come from host-owned sources, in order:
 
 Library code names no application, product, or host, and a removed name keeps everything it served:
 - Coupling: a literal naming one application becomes a derivation from host state listing its row, or caller data at a product boundary
-- Absent value: a value no host source states enters as caller data at a boundary, stated once, and the library derives, defaults, and composes
+- Absent value: a value no host source states enters as caller data at a boundary, stated once, and a private host symbol or key takes row `[14]` of `[03]`
 - Library values: library code holds no product name, style name, palette, sheet size, margin, path, or tuned value
 - Absent behavior: a behavior no host member performs composes host kinds and package members over caller data, never a copy of a host member
 - Older installs: they load built products alone, and no code targets them
@@ -258,7 +264,7 @@ Values and messages lose the type or case they come from:
 Members state each decision once, at one level, as a chain of steps a reader holds one at a time. Near-identical statements, arms, or rows, depth that rises after it fell, wrappers, and helpers are one defect: a decision written more than once, or a step written where its owner performs it.
 
 Rewrites keep every behavior of the base and change its shape:
-- Behavior list -> each row of `[02]` maps to a site in the rebuilt diff, and a row with no site takes its base code back
+- Behavior list -> each row of `[02]` maps to a site in the rebuilt diff, and a row with no site is restored in the rebuilt form, never by base code
 - Compiler limit (type-check timeout, crash on a packed expression) -> the language skill's form for that construct, never the base shape by default
 - Checker limit (callback count, generator count) -> the form the language skill names at the limit, a curried member or a generator statement
 - Defect found by a read -> named with its line and the source fact showing it, fixed at its cause
@@ -270,7 +276,7 @@ Nesting counts levels of logic, each a scope a reader holds open through the nex
 - Ragged: depth rising, falling, and rising again in one member is a chain written as a tree, a defect under the limit
 - Guards: a language's early-exit forms (`guard let`, `let ... else`, `?`, `yield*`) are binding chains and stay
 
-Members past the limit or ragged rebuild deepest first, each step taking the earliest form that holds:
+Members rebuild deepest first, each step taking the earliest form that holds:
 1. Name each level by its step's verb (decode, look up, choose), a level taking more verbs holding more steps
 2. Remove each step changing nothing a later step reads: a conversion the next step undoes, a wrapper built to unwrap, a check its type guarantees
 3. Replace code performing a step with a host or package member performing it
@@ -334,13 +340,18 @@ Members get faster through fewer passes, allocations, and parses over one input,
 
 ## [07]-[CLOSING]
 
-Passes close on the repository's own checks and a read of the diff, and a pass with a red step stays open:
-1. Diff: `git diff <base> -- <paths>` and each untracked file read whole against the tables of `[03]` to `[06]` and the rows below, each hit rebuilt
-2. Behaviors: each behavior statement of `[02]` has its site in the diff, and one with no site is restored
-3. Shape: each fall in lines or declarations traces to a deleted declaration or owner call, never to a form moved, split, wrapped, aliased, or joined
-4. Format: `hk fix <paths>`, each file it changed read again, as an autofix can drop a binding
-5. Check: `nx run-many -t check -p <edited and consumer projects>` in the background, or a file outside any project its language's type checker, run again after each fix until green
-6. Commit: `git commit -- <paths>` naming each path of the pass, as a commit with no paths takes every staged path in the tree
+Passes close on the repository's own checks, then a whole read of the diff, and a pass with a red step or a hit in the read stays open:
+1. Format: `hk fix <paths>`, each file it changed read again, as an autofix can drop a binding
+2. Check: `nx run-many -t check -p <edited and consumer projects>` in the background, or its language's type checker for a file outside any project, until green
+3. Diff: `git diff <base> -- <paths>` and each untracked file read whole after the last green check, as a form a check forced reaches no earlier read
+4. Rebuild: each hit of the read rebuilt, then steps 1 to 3 again
+5. Commit: `git commit -- <paths>` once a read finds no hit, naming each path, as a commit with no paths takes every staged path in the tree
+
+Diff reads hit on:
+- Tables: a form a row of `[03]` to `[06]` or of the table below names
+- Behaviors: a behavior statement of `[02]` with no site, restored in the rebuilt form and never by base code
+- Shape: a removed line gone to no deletion or owner call, an added line with neither an owner call nor a capability the base lacked
+- Moves: a form moved, split, wrapped, aliased, renamed in place, or joined onto one line
 
 Rows no edit table holds, each found in the diff read:
 
