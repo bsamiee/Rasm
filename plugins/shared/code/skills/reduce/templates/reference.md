@@ -1,77 +1,106 @@
 # [LANGUAGE]
 
-<Language> targets hold `<extensions>` files, `<project>` naming the folder holding `<manifest>`, `<paths>` files a pass touches, and `<dir>` session scratch folder.
+<Language> targets hold `<extensions>` files of projects `<workspace file>` lists. Placeholders: `<project>` names project folder holding `<manifest>`, `<paths>` files each pass touches, `<dir>` session scratch folder, and `<roots>` folders holding <Language> code.
 
 ## [01]-[SKILLS]
 
-| [INDEX] | [TARGET]       | [SKILLS]               | [CONDITION]                 |
-| :-----: | :------------- | :--------------------- | :-------------------------- |
-|  [01]   | Any <Language> | `<language>:coding`    | `<extension>` file          |
-|  [02]   | Tests          | `<language>:testing`   | Suite under `tests/`        |
-|  [03]   | <Package>      | `<language>:<package>` | Manifest naming `<package>` |
-|  [04]   | <Host>         | `<host>:coding`        | Code a host loads           |
+Coding and core package skills load for every target, whatever it imports, and other package skills load for each job the target does by hand:
+
+| [INDEX] | [TARGET]       | [SKILLS]                                    | [CONDITION]                                |
+| :-----: | :------------- | :------------------------------------------ | :----------------------------------------- |
+|  [01]   | Any <Language> | `<language>:coding`, `<language>:<package>` | Every target, whatever it imports          |
+|  [02]   | <Job>          | `<language>:<package>`                      | <Job> written by hand                      |
+|  [03]   | <Host>         | `<host>:coding`                             | Imports `<host module>`                    |
+|  [04]   | Tests          | `<language>:testing`, `code:test`           | Suite under `tests/`, or pass changing one |
+
+`<language>:coding` states core package forms across its references, each read whole with it.
 
 ## [02]-[SOURCES]
 
-<Language> targets read their core packages, standard library, runtime, and host SDK at the version the project resolves. Package reads, one command per step:
-1. Guide: core package's agent guide or entry-point index, read whole
-2. Index: modules or namespaces with member counts and summaries
-3. Inventory: every member of each chosen group, written to a file and counted
-4. Standard library: members of the standard library and built-in types the target restates
-5. Host: SDK declarations the target calls or restates
-6. Workspace: repository libraries the target imports, resolved to their source
-7. Catalog: central manifest candidates no project declares, read through step 3
+<Language> targets read core packages, standard library, and host SDK every session at the release their project resolves, whatever they import, as most hand-rolled code in this repository restates one of them. Package reads, one command per step:
+1. Version: release `<lock>` resolves for each core package, never a cache folder holding more than one
+2. Guide: each core package's agent guide, else its entry-point index, read whole
+3. `<package>`: inventory of every public module, for <jobs targets do by hand>
+4. `<package>`: inventory of each module naming a target job's field, read whole
+5. Standard library: members of standard library and built-in types the target restates
+6. Host: SDK declarations the target calls or restates
+7. Workspace: repository libraries the target imports, each resolved to its source and read whole
+8. Central manifest: `<manifest>` listed whole, each package relevant to the target's jobs added where it fits and its API read deeply
 
 ```bash
 <command per step>
+<command listing central manifest whole>
 ```
+
+Reads hold under conditions below:
+- <Condition>: <rule a read follows>
 
 ## [03]-[MAPPING]
 
 Maps list what each file of the target declares and exports and who reads it, one command per step, each run once over `<paths>`:
-1. Exports: exported names per file with their kind and visibility level
-2. Name families: names differing by case, plural, or a joined builder or runner word
-3. Constants: exported constants, each traced to its reader and the source that should state it
-4. Readers: reader sites by symbol identity through the language's compiler tools
-5. Text: sites spelling a member, key, path, or message, and mentions across docs, skills, and manifests
-6. Like work: clone pairs touching the target, ranked by lines times similarity
-7. Nesting: depth per site past one level, deepest first, through the linter the repository runs
+1. Levels: declarations per file at each visibility level, the list a pass narrows
+2. Name families: names differing by case, plural, or a joined builder or runner word, each family read whole before judging it
+3. Constants: exported constants, each traced to its readers and to the source owning its value
+4. Importers: files importing each unit module and members each reads, by symbol identity through compiler tools
+5. Text: sites spelling a member, key, path, or message a declaration holds, and mentions across docs, skills, and manifests
+6. Like work: clone pairs touching the target across `<roots>`, ranked by lines times similarity
+7. Nesting: block depth per site past one level, deepest first
 
 ```bash
 <command per step>
+rg -nw '<name>' .
+jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 --format <format> --reporters json --output <dir>/jscpd <roots>;
+    jq -r --arg t "$PWD/<target>/" '[.duplicates[] | select((.firstFile.name | startswith($t)) or (.secondFile.name | startswith($t)))] | sort_by(-(.lines * .similarity))[]
+    | "\(.lines)\t\(.similarity)\t\(.firstFile.name):\(.firstFile.start)\t\(.secondFile.name):\(.secondFile.start)"' <dir>/jscpd/jscpd-report.json
+<nesting command>
 ```
 
-Commands read by their own rules:
-- <Command>: <exit code, output shape, or limit a reader needs>
+Command outputs read by their own rules:
+- <Step>: <exit code, output shape, or limit a reader needs>
+- Clones: jscpd exits 1 whenever a pair prints, and the ranking reads its report regardless
+- Nesting: <levels the checker counts, its exit code on a site past the limit>
 
 ## [04]-[MECHANISMS]
 
-<Language> <its means of stating one concept once>, so reductions here <how they mostly remove a declaration>:
+<Language> <states one concept once through its own means>. Most cuts delete a declaration by <its usual removal>. Root `<settings file>` decides which forms compile: <setting and forms it accepts or rejects>.
+
+[NAMES]:
 - <Mechanism>: <form and what it replaces>
 
-Host rules bind where a host checks the code, each proved by one probe of its check over a fresh build:
-- <Host>: <rule and the form it forces>
+[DERIVATION]:
+- <Mechanism>: <form and what it replaces>
+
+[RESULTS]:
+- <Mechanism>: <form and what it replaces>
+
+[<GROUP>]:
+- <Mechanism>: <form and what it replaces>
+
+Host rules apply where a host or compiler checks code, each proved by one probe build:
+- <Host>: <rule and form it forces>
 
 ## [05]-[PATTERNS]
 
-Patterns common in <Language>, each a lead the map confirms before any rebuild, its rebuild holding under the condition beside it:
+<Language> code repeats patterns below, each a candidate the map confirms before any rebuild. Rows hold what no repository checker (analyzer, lint, ast-grep rule) enforces, from language nature first and repository code second:
 
 | [INDEX] | [PATTERN] | [LOOK_FOR]                | [REBUILD]       |
 | :-----: | :-------- | :------------------------ | :-------------- |
 |  [01]   | <Pattern> | <What a whole read shows> | <Language form> |
 
-Patterns hold under these conditions:
-- Row [01] -> <case where the rebuild does not hold>
+Rows hold under conditions below:
+- Row [01] -> <code the rebuild leaves in place, with its reason>
 
 ## [06]-[CHECK]
 
-Check per pass, each command its own background call:
+Checks run per pass, each command in its own background call, with `--files` taking `<paths>` joined by commas:
 
 ```bash
 hk fix <paths>
 nx affected -t check --files=<paths> --exclude=rasm
+<host validator over a fresh build>
 ```
 
-- Scope: root project `rasm` runs repository-wide checks, which fail on other work in a shared tree, and a pass excludes it
+- Scope: passes exclude root project `rasm`, as its repository-wide checks fail on other work in a shared tree
+- Build: `check` runs <targets> of each project a change reaches, dependents included
 - Manifest: `<paths>` holding `<manifest>` or `<lock>` -> same `nx affected` line without `--exclude=rasm`
-- Host: <host validator over a fresh build>
+- Host: `<host>` code in `<paths>` -> validator over its fresh build
