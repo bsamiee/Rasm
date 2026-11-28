@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { hash } from 'node:crypto';
 import { join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -175,7 +175,7 @@ const deploy = {
                 [App.bundle.signing.endpoint]: { type: 'plain_text', text: `https://${accountId}${jurisdiction === 'default' ? '' : `.${jurisdiction}`}.r2.cloudflarestorage.com` },
                 [App.bundle.signing.region]: { type: 'plain_text', text: 'auto' },
                 [App.bundle.signing.key]: { type: 'secret_text', text: granted.id },
-                [App.bundle.signing.secret]: { type: 'secret_text', text: secret(granted.value.apply((value) => createHash('sha256').update(value).digest('hex'))) },
+                [App.bundle.signing.secret]: { type: 'secret_text', text: secret(granted.value.apply((value) => hash('sha256', value))) },
             };
         });
         const bindings = (hosts: Output<readonly string[]>) => ({

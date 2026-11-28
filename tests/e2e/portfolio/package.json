@@ -18,7 +18,6 @@
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "get-port": "catalog:",
         "miniflare": "catalog:"
     },
     "nx": {

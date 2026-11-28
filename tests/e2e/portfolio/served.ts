@@ -1,7 +1,8 @@
+import { BoundSocket } from 'node:net';
 import { join } from 'node:path';
 import process from 'node:process';
 import { DatabaseSync } from 'node:sqlite';
-import { layerUndici } from '@effect/platform-node/NodeHttpClient';
+import { layerNodeHttpOptions } from '@effect/platform-node/NodeHttpClient';
 import { layer } from '@effect/platform-node/NodeServices';
 import { App } from '@rasm/hosting/app';
 import { Access, Enrollment } from '@rasm/hosting/identity';
@@ -10,7 +11,6 @@ import { routed } from '@rasm/testing/playwright';
 import { Cause, Effect, FileSystem, Function, Layer, Schedule, Schema } from 'effect';
 import { HttpBody, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess } from 'effect/process';
-import getPort from 'get-port';
 import { CorePaths, Miniflare } from 'miniflare';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -80,7 +80,16 @@ const served = Effect.gen(function* () {
         Effect.sync(() => new Miniflare(emulated)),
         (held) => Effect.promise(() => held.dispose()),
     );
-    const [stored, port, access, allowed] = yield* Effect.all([Effect.promise(() => storage.ready), Effect.promise(() => getPort()), Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })), Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]])]);
+    const [stored, port, access, allowed] = yield* Effect.all([
+        Effect.promise(() => storage.ready),
+        Effect.acquireUseRelease(
+            Effect.sync(() => new BoundSocket({ host: '127.0.0.1' })),
+            (socket) => Effect.sync(() => socket.address().port),
+            (socket) => Effect.sync(() => socket.close()),
+        ),
+        Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })),
+        Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]]),
+    ]);
     const origin = `http://127.0.0.1:${port}`;
     const database = join(state, 'portfolio.sqlite');
     const server = yield* ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], {
@@ -115,7 +124,7 @@ const served = Effect.gen(function* () {
     return { origin, reset };
 });
 
-const platform = Layer.merge(layerUndici, layer);
+const platform = Layer.merge(layerNodeHttpOptions({ keepAlive: true }), layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,11 +1,11 @@
-import { join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CloudflareConfig } from '@cloudflare/vite-plugin';
 import { layer } from '@effect/platform-node/NodeServices';
 import { bindings } from 'cf/config';
 import { Array, Effect, FileSystem, Function, Record, Result } from 'effect';
 import { CorePaths } from 'miniflare';
-import type { Plugin } from 'vite';
+import { type Plugin, searchForWorkspaceRoot } from 'vite';
 import { App, type Binding } from '#/app/app';
 import { HostingError } from '#/app/error';
 
@@ -18,29 +18,36 @@ const STARTED = { id: new RegExp(`^${RegExp.escape(START)}$`, 'u') };
 
 const nodeBundle = (entry: string): Plugin => ({
     name: '@rasm/hosting/bundle',
-    config: ({ build, environments }) => ({
-        builder: {},
-        environments: {
-            [App.bundle.environment]: {
-                consumer: 'server',
-                resolve: { noExternal: true },
-                build: {
-                    outDir: environments?.[App.bundle.environment]?.build?.outDir ?? join(build?.outDir ?? 'dist', App.bundle.environment),
-                    assetsDir: 'chunks',
-                    emptyOutDir: true,
-                    copyPublicDir: false,
-                    sourcemap: true,
-                    target: 'esnext',
-                    rolldownOptions: { input: { [App.bundle.entry]: START }, platform: 'node' },
+    config: ({ build, environments, root }) => {
+        const workspace = searchForWorkspaceRoot(resolve(root ?? '.'));
+        return {
+            builder: {},
+            environments: {
+                [App.bundle.environment]: {
+                    consumer: 'server',
+                    resolve: { noExternal: true },
+                    build: {
+                        outDir: environments?.[App.bundle.environment]?.build?.outDir ?? join(build?.outDir ?? 'dist', App.bundle.environment),
+                        assetsDir: 'chunks',
+                        emptyOutDir: true,
+                        copyPublicDir: false,
+                        sourcemap: 'hidden',
+                        minify: true,
+                        target: 'esnext',
+                        rolldownOptions: {
+                            input: { [App.bundle.entry]: START },
+                            platform: 'node',
+                            output: { minify: { mangle: false }, sourcemapExcludeSources: true, sourcemapPathTransform: (source, map) => relative(workspace, resolve(dirname(map), source)) },
+                        },
+                    },
                 },
             },
-        },
-    }),
+        };
+    },
     resolveId: { filter: STARTED, handler: Function.identity },
     load: {
         filter: STARTED,
-        handler: () =>
-            `import { setSourceMapsSupport } from 'node:module';\nsetSourceMapsSupport(true);\nconst [{ runMain }, { default: served }] = await Promise.all([import(${JSON.stringify(fileURLToPath(import.meta.resolve('@effect/platform-node/NodeRuntime')))}), import(${JSON.stringify(entry)})]);\nrunMain(served);`,
+        handler: () => `const [{ runMain }, { default: served }] = await Promise.all([import(${JSON.stringify(fileURLToPath(import.meta.resolve('@effect/platform-node/NodeRuntime')))}), import(${JSON.stringify(entry)})]);\nrunMain(served);`,
     },
     buildApp: {
         order: 'post',

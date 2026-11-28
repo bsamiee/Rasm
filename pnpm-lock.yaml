@@ -2579,9 +2579,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
-      get-port:
-        specifier: 'catalog:'
-        version: 7.2.0
       miniflare:
         specifier: 'catalog:'
         version: 5.20261123.1-beta(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))
@@ -3680,9 +3677,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
-      get-port:
-        specifier: 'catalog:'
-        version: 7.2.0
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)

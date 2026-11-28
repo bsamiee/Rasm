@@ -6,7 +6,7 @@
         "customConditions": ["workerd"],
         "types": ["@cloudflare/workers-types", "vite/client"]
     },
-    "include": ["server/main.ts"],
+    "include": ["server"],
     "references": [
         {
             "path": "../../../libs/typescript/data/database"

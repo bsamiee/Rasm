@@ -20,7 +20,12 @@ const treeSegment = /\.(?<key>[^.[]+)|\[(?<index>\d+)\]/gu;
 
 const TreePath = Schema.String.pipe(
     Schema.decodeTo(Schema.Array(Schema.Union([Schema.String, Schema.Int])), {
-        decode: SchemaGetter.transform((fullkey) => Array.fromIterable(fullkey.matchAll(treeSegment)).map(([, key, index]: readonly (string | undefined)[]) => key ?? Number(index))),
+        decode: SchemaGetter.transform((fullkey) =>
+            fullkey
+                .matchAll(treeSegment)
+                .map(([, key, index]: readonly (string | undefined)[]) => key ?? Number(index))
+                .toArray(),
+        ),
         encode: SchemaGetter.transform((path) => ['$', ...path.map((segment) => (typeof segment === 'number' ? `[${segment}]` : `.${segment}`))].join('')),
     }),
 );
