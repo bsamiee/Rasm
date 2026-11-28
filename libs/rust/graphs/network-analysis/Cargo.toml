@@ -25,7 +25,6 @@ validated            = { workspace = true }
 derive_more          = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
-serde                = { workspace = true }
 typed_floats         = { workspace = true }
 ordered-float        = { workspace = true }
 nalgebra             = { workspace = true }

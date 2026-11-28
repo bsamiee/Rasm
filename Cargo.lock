@@ -10316,7 +10316,6 @@ dependencies = [
  "petgraph",
  "rayon",
  "rustworkx-core",
- "serde",
  "thiserror 2.0.21",
  "typed_floats",
  "validated",
