@@ -39,7 +39,7 @@
 
 | [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                            |
 | :-----: | :---------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members             |
+|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members                                               |
 |  [02]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                    |
 |  [03]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                           |
 |  [04]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays             |
